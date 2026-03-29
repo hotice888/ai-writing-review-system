@@ -1,0 +1,1 @@
+前端语言使用TypeScript 框架使用Vue 3 + Vue Router + Pinia + ElementPlus，后端Node.js (Express)，数据库用PostgresQL
