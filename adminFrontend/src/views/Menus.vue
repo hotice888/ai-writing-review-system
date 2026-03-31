@@ -11,6 +11,19 @@
             </el-button>
           </div>
           <div class="header-right">
+            <el-input
+              v-model="searchKeyword"
+              placeholder="搜索菜单名称或编码"
+              clearable
+              style="width: 200px; margin-right: 10px"
+              @clear="handleSearch"
+              @keyup.enter="handleSearch"
+              @input="handleSearch"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
             <el-select
               v-model="filterClientType"
               placeholder="按客户端筛选"
@@ -57,19 +70,6 @@
               <el-option label="需要权限" value="true" />
               <el-option label="无需权限" value="false" />
             </el-select>
-            <el-input
-              v-model="searchKeyword"
-              placeholder="搜索菜单名称或编码"
-              clearable
-              style="width: 200px"
-              @clear="handleSearch"
-              @keyup.enter="handleSearch"
-              @input="handleSearch"
-            >
-              <template #prefix>
-                <el-icon><Search /></el-icon>
-              </template>
-            </el-input>
           </div>
         </div>
       </template>
