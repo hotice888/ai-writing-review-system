@@ -77,7 +77,7 @@
               <template #dropdown>
                 <el-dropdown-menu>
                   <template v-for="(menu, index) in avatarMenuList" :key="menu.id">
-                    <el-dropdown-item :command="menu.path" :divided="index > 0">
+                    <el-dropdown-item :command="menu" :divided="index > 0">
                       <el-icon v-if="menu.icon">
                         <component :is="menu.icon" />
                       </el-icon>
@@ -201,12 +201,16 @@ const handleParentMenuClick = (menu: Menu) => {
   // 子菜单的折叠/展开由Element Plus自动处理
 };
 
-const handleCommand = async (command: string) => {
-    if (command === '/admin' || command === 'admin') {
+const handleCommand = async (menu: Menu) => {
+  if (menu.target === '_blank') {
+    if (menu.path === '/admin') {
       const token = localStorage.getItem('token');
       const adminUrl = import.meta.env.VITE_ADMIN_BASE_URL || 'http://localhost:5174';
       window.open(`${adminUrl}?token=${token}`, '_blank');
-    } else if (command === '/logout' || command === 'logout') {
+    } else {
+      window.open(menu.path, '_blank');
+    }
+  } else if (menu.path === '/logout' || menu.code === 'user-logout') {
     try {
       await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
         confirmButtonText: '确定',
@@ -219,8 +223,7 @@ const handleCommand = async (command: string) => {
       // 用户取消
     }
   } else {
-    // 处理菜单路径
-    router.push(command);
+    router.push(menu.path);
   }
 };
 

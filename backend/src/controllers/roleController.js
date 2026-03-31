@@ -716,24 +716,50 @@ const getUserMenus = async (req, res) => {
     // 合并菜单并去重
     const menuMap = new Map();
     
-    // 添加无需权限的菜单
+    // 统一处理无需权限的菜单，确保字段名一致
     noPermissionResult.rows.forEach(menu => {
-      menuMap.set(menu.id, menu);
+      menuMap.set(menu.id, {
+        ...menu,
+        sort_order: menu.sort_order || 0
+      });
     });
     
-    // 添加需要权限的菜单
+    // 统一处理需要权限的菜单，确保字段名一致
     filteredPermissionMenus.forEach(menu => {
-      menuMap.set(menu.id, menu);
+      menuMap.set(menu.id, {
+        id: menu.id,
+        name: menu.name,
+        code: menu.code,
+        path: menu.path,
+        component: menu.component,
+        icon: menu.icon,
+        parent_id: menu.parentId,
+        sort_order: menu.sortOrder || 0,
+        status: menu.status,
+        client_type: menu.clientType,
+        need_permission: menu.needPermission,
+        position: menu.position,
+        target: menu.target,
+        type: menu.type,
+        created_at: menu.createdAt,
+        updated_at: menu.updatedAt
+      });
     });
 
     // 转换为数组并排序
     const allMenus = Array.from(menuMap.values()).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    
+    // 添加调试日志
+    console.log('排序后的菜单:');
+    allMenus.forEach(menu => {
+      console.log(`  - ${menu.name} (sort_order: ${menu.sort_order})`);
+    });
 
     // 构建菜单树形结构
     const menuTree = [];
     const menuMapById = new Map();
 
-    // 首先创建所有菜单的映射
+    // 首先创建所有菜单的映射，并保存sort_order
     allMenus.forEach(menu => {
       menuMapById.set(menu.id, {
         id: menu.id,
@@ -747,7 +773,8 @@ const getUserMenus = async (req, res) => {
         clientType: menu.client_type,
         needPermission: menu.need_permission,
         position: menu.position,
-        target: menu.target || '_self', // 添加显示方式，默认为_self（主内容区显示）
+        target: menu.target || '_self',
+        sortOrder: menu.sort_order, // 保存排序值
         children: []
       });
     });
@@ -770,7 +797,20 @@ const getUserMenus = async (req, res) => {
       }
     });
 
-    console.log('返回菜单数据:', menuTree);
+    // 对顶级菜单进行排序，确保顺序正确
+    menuTree.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+    // 对每个菜单的子菜单也进行排序
+    menuTree.forEach(menu => {
+      if (menu.children && menu.children.length > 0) {
+        menu.children.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      }
+    });
+
+    console.log('最终返回的菜单顺序:');
+    menuTree.forEach(menu => {
+      console.log(`  - ${menu.name} (sortOrder: ${menu.sortOrder})`);
+    });
     res.json({
       code: 200,
       message: '获取成功',

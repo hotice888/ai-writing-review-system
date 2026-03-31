@@ -97,18 +97,6 @@ const initDatabase = async () => {
       console.error('Error adding position column to menus table:', error);
     }
 
-    // 检查并添加target字段（用于指定菜单打开方式：_self-当前页签，_blank-新页签）
-    try {
-      await pool.query(`ALTER TABLE menus ADD COLUMN IF NOT EXISTS target VARCHAR(20) DEFAULT '_self'`);
-      console.log('Added target column to menus table');
-      
-      // 更新现有记录的target值
-      await pool.query(`UPDATE menus SET target = '_self' WHERE target IS NULL`);
-      console.log('Updated existing menus with target values');
-    } catch (error) {
-      console.error('Error adding target column to menus table:', error);
-    }
-
     // 用户角色关联表
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_roles (
@@ -295,15 +283,21 @@ const initDefaultData = async () => {
           );
           console.log(`Added menu: ${menu.name} (ID: ${result.rows[0].id})`);
         } else {
-          // 存在，检查code是否为空
+          // 存在，检查code是否为空，并更新target字段
           if (!existingMenu.rows[0].code || existingMenu.rows[0].code === '') {
             // 更新code值
             await pool.query(
-              'UPDATE menus SET code = $1 WHERE id = $2',
-              [menu.code, existingMenu.rows[0].id]
+              'UPDATE menus SET code = $1, target = $2 WHERE id = $3',
+              [menu.code, menu.target, existingMenu.rows[0].id]
             );
-            console.log(`Updated menu code: ${menu.name} (ID: ${existingMenu.rows[0].id})`);
+            console.log(`Updated menu code and target: ${menu.name} (ID: ${existingMenu.rows[0].id})`);
           } else {
+            // 检查target是否需要更新
+            const menuCheck = await pool.query('SELECT target FROM menus WHERE id = $1', [existingMenu.rows[0].id]);
+            if (menuCheck.rows[0]?.target !== menu.target) {
+              await pool.query('UPDATE menus SET target = $1 WHERE id = $2', [menu.target, existingMenu.rows[0].id]);
+              console.log(`Updated menu target: ${menu.name} (ID: ${existingMenu.rows[0].id})`);
+            }
             console.log(`Menu already exists: ${menu.name} (ID: ${existingMenu.rows[0].id})`);
           }
         }
@@ -327,7 +321,7 @@ const initDefaultData = async () => {
       { name: '退出登录', code: 'user-logout-avatar-admin', path: '/logout', component: 'Logout', icon: 'SwitchButton', sort_order: 3, type: 'menu', client_type: 'admin', need_permission: false, position: 'avatar', target: '_self', status: 'enabled' },
       // 用户端头像菜单
       { name: '用户信息', code: 'user-profile-avatar-home', path: '/profile', component: 'Profile', icon: 'User', sort_order: 1, type: 'menu', client_type: 'home', need_permission: false, position: 'avatar', target: '_self', status: 'enabled' },
-      { name: '后台管理', code: 'admin-dashboard-avatar-home', path: '/admin', component: 'AdminDashboard', icon: 'Setting', sort_order: 2, type: 'menu', client_type: 'home', need_permission: true, position: 'avatar', target: '_self', status: 'enabled' },
+      { name: '后台管理', code: 'admin-dashboard-avatar-home', path: '/admin', component: 'AdminDashboard', icon: 'Setting', sort_order: 2, type: 'menu', client_type: 'home', need_permission: true, position: 'avatar', target: '_blank', status: 'enabled' },
       { name: '退出登录', code: 'user-logout-avatar-home', path: '/logout', component: 'Logout', icon: 'SwitchButton', sort_order: 3, type: 'menu', client_type: 'home', need_permission: false, position: 'avatar', target: '_self', status: 'enabled' },
     ];
 
@@ -347,21 +341,27 @@ const initDefaultData = async () => {
         if (existingMenu.rows.length === 0) {
           // 不存在，创建新菜单
           const result = await pool.query(
-            `INSERT INTO menus (name, code, path, component, icon, sort_order, type, client_type, need_permission, position, target, status) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
-            [menu.name, menu.code, menu.path, menu.component, menu.icon, menu.sort_order, menu.type, menu.client_type, menu.need_permission, menu.position, menu.target || '_self', menu.status]
+            `INSERT INTO menus (name, code, path, component, icon, sort_order, type, client_type, need_permission, position, status) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+            [menu.name, menu.code, menu.path, menu.component, menu.icon, menu.sort_order, menu.type, menu.client_type, menu.need_permission, menu.position, menu.status]
           );
           console.log(`Added menu: ${menu.name} (ID: ${result.rows[0].id})`);
         } else {
-          // 存在，检查code是否为空
+          // 存在，检查code是否为空，并更新target字段
           if (!existingMenu.rows[0].code || existingMenu.rows[0].code === '') {
-            // 更新code值
+            // 更新code值和target
             await pool.query(
-              'UPDATE menus SET code = $1 WHERE id = $2',
-              [menu.code, existingMenu.rows[0].id]
+              'UPDATE menus SET code = $1, target = $2 WHERE id = $3',
+              [menu.code, menu.target, existingMenu.rows[0].id]
             );
-            console.log(`Updated menu code: ${menu.name} (ID: ${existingMenu.rows[0].id})`);
+            console.log(`Updated menu code and target: ${menu.name} (ID: ${existingMenu.rows[0].id})`);
           } else {
+            // 检查target是否需要更新
+            const menuCheck = await pool.query('SELECT target FROM menus WHERE id = $1', [existingMenu.rows[0].id]);
+            if (menuCheck.rows[0]?.target !== menu.target) {
+              await pool.query('UPDATE menus SET target = $1 WHERE id = $2', [menu.target, existingMenu.rows[0].id]);
+              console.log(`Updated menu target: ${menu.name} (ID: ${existingMenu.rows[0].id})`);
+            }
             console.log(`Menu already exists: ${menu.name} (ID: ${existingMenu.rows[0].id})`);
           }
         }
@@ -392,15 +392,21 @@ const initDefaultData = async () => {
           );
           console.log(`Added menu: ${menu.name} (ID: ${result.rows[0].id})`);
         } else {
-          // 存在，检查code是否为空
+          // 存在，检查code是否为空，并更新target字段
           if (!existingMenu.rows[0].code || existingMenu.rows[0].code === '') {
-            // 更新code值
+            // 更新code值和target
             await pool.query(
-              'UPDATE menus SET code = $1 WHERE id = $2',
-              [menu.code, existingMenu.rows[0].id]
+              'UPDATE menus SET code = $1, target = $2 WHERE id = $3',
+              [menu.code, menu.target, existingMenu.rows[0].id]
             );
-            console.log(`Updated menu code: ${menu.name} (ID: ${existingMenu.rows[0].id})`);
+            console.log(`Updated menu code and target: ${menu.name} (ID: ${existingMenu.rows[0].id})`);
           } else {
+            // 检查target是否需要更新
+            const menuCheck = await pool.query('SELECT target FROM menus WHERE id = $1', [existingMenu.rows[0].id]);
+            if (menuCheck.rows[0]?.target !== menu.target) {
+              await pool.query('UPDATE menus SET target = $1 WHERE id = $2', [menu.target, existingMenu.rows[0].id]);
+              console.log(`Updated menu target: ${menu.name} (ID: ${existingMenu.rows[0].id})`);
+            }
             console.log(`Menu already exists: ${menu.name} (ID: ${existingMenu.rows[0].id})`);
           }
         }
