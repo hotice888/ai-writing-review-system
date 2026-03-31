@@ -102,8 +102,8 @@ export const getMenuById = (menuId: string) => {
   return request.get<any, any>(`/menus/${menuId}`);
 };
 
-export const getUserMenus = (clientType: string) => {
-  return request.get<any, any[]>('/roles/menus/user', { params: { clientType } });
+export const getUserMenus = (clientType: string, position?: string) => {
+  return request.get<any, any[]>('/roles/menus/user', { params: { clientType, position } });
 };
 
 export const createMenu = (data: {
@@ -136,4 +136,105 @@ export const updateMenu = (menuId: string, data: {
 
 export const deleteMenu = (menuId: string) => {
   return request.delete<any, ApiResponse>(`/menus/${menuId}`);
+};
+
+// 模型管理
+export const getModels = () => {
+  return request.get<any, any[]>('/models');
+};
+
+export const getModelById = (modelId: string) => {
+  return request.get<any, any>(`/models/${modelId}`);
+};
+
+export const createModel = (data: {
+  name: string;
+  code: string;
+  provider: string;
+  model: string;
+  description: string;
+  status: string;
+}) => {
+  return request.post<any, ApiResponse>('/models', data);
+};
+
+export const updateModel = (modelId: string, data: {
+  name: string;
+  code: string;
+  provider: string;
+  model: string;
+  description: string;
+  status: string;
+}) => {
+  return request.put<any, ApiResponse>(`/models/${modelId}`, data);
+};
+
+export const deleteModel = (modelId: string) => {
+  return request.delete<any, ApiResponse>(`/models/${modelId}`);
+};
+
+// 用户模型管理
+export const getUserModels = () => {
+  return request.get<any, any[]>('/admin/user-models');
+};
+
+export const getAgents = () => {
+  return request.get<any, any[]>('/agents');
+};
+
+export const getAgent = (id: string) => {
+  return request.get<any, any>(`/agents/${id}`);
+};
+
+export const createAgent = (data: any) => {
+  return request.post<any, any>('/agents', data);
+};
+
+export const updateAgent = (id: string, data: any) => {
+  return request.put<any, any>(`/agents/${id}`, data);
+};
+
+export const deleteAgent = (id: string) => {
+  return request.delete<any, any>(`/agents/${id}`);
+};
+
+export const getUserAgents = () => {
+  return request.get<any, any[]>('/admin/user-agents');
+};
+
+// 模型提供商管理
+export const getModelProviders = () => {
+  return request.get<any, any[]>('/model-providers');
+};
+
+export const getModelProviderById = (providerId: string) => {
+  return request.get<any, any>(`/model-providers/${providerId}`);
+};
+
+export const createModelProvider = (data: {
+  name: string;
+  code: string;
+  url: string;
+  openai_base_url: string;
+  protocol_base_url: string;
+  description: string;
+  status: string;
+}) => {
+  return request.post<any, ApiResponse>('/model-providers', data);
+};
+
+export const updateModelProvider = (providerId: string, data: {
+  name: string;
+  code: string;
+  url: string;
+  openai_base_url: string;
+  protocol_base_url: string;
+  description: string;
+  status: string;
+}) => {
+  return request.put<any, ApiResponse>(`/model-providers/${providerId}`, data);
+};
+
+export const deleteModelProvider = (providerId: string) => {
+  return request.delete<any, ApiResponse>(`/model-providers/${providerId}`);
 };

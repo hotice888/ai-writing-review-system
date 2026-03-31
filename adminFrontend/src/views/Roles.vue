@@ -42,22 +42,42 @@
         <el-table-column prop="name" label="角色名称" min-width="150" />
         <el-table-column prop="code" label="角色代码" min-width="150" />
         <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="created_at" label="创建时间" width="180">
+        <el-table-column prop="createdAt" label="创建时间" width="180">
           <template #default="{ row }">
-            {{ formatDate(row.created_at) }}
+            {{ formatDate(row.createdAt) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="继承角色" min-width="150">
+          <template #default="{ row }">
+            <div v-if="row.parent_ids && row.parent_ids.length > 0">
+              <el-tag
+                v-for="parentId in row.parent_ids"
+                :key="parentId"
+                size="small"
+                style="margin-right: 5px"
+              >
+                {{ getRoleNameById(parentId) }}
+              </el-tag>
+            </div>
+            <span v-else class="text-gray">无</span>
           </template>
         </el-table-column>
         <el-table-column label="操作" min-width="200">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">
-              编辑
-            </el-button>
-            <el-button type="success" link @click="handleMember(row)">
-              成员
-            </el-button>
-            <el-button type="danger" link @click="handleDelete(row)">
-              删除
-            </el-button>
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <el-button type="primary" link @click="handleEdit(row)">
+                编辑
+              </el-button>
+              <el-button type="success" link @click="handleMember(row)">
+                成员
+              </el-button>
+              <el-button type="info" link @click="handlePermission(row)">
+                权限
+              </el-button>
+              <el-button type="danger" link @click="handleDelete(row)">
+                删除
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -104,6 +124,25 @@
         <el-form-item label="描述" prop="description">
           <el-input v-model="form.description" type="textarea" placeholder="请输入角色描述" />
         </el-form-item>
+        <el-form-item label="父角色">
+          <el-select
+            v-model="form.parent_ids"
+            multiple
+            placeholder="请选择父角色（可多选）"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="role in allRoles"
+              :key="role.id"
+              :label="role.name"
+              :value="role.id"
+              :disabled="isEdit && role.id === form.id"
+            />
+          </el-select>
+          <el-text v-if="isEdit && form.id" type="info" size="small">
+            不能选择自身作为父角色
+          </el-text>
+        </el-form-item>
         <el-form-item label="菜单权限">
           <el-tabs v-model="activeTab">
             <el-tab-pane label="管理端菜单" name="admin">
@@ -115,7 +154,6 @@
                 :props="{ label: 'name', children: 'children' }"
                 :default-checked-keys="selectedMenus.admin"
                 :render-content="renderContent"
-                :disabled="(data: any) => !data.needPermission"
               />
             </el-tab-pane>
             <el-tab-pane label="用户端菜单" name="home">
@@ -127,7 +165,6 @@
                 :props="{ label: 'name', children: 'children' }"
                 :default-checked-keys="selectedMenus.home"
                 :render-content="renderContent"
-                :disabled="(data: any) => !data.needPermission"
               />
             </el-tab-pane>
           </el-tabs>
@@ -266,6 +303,89 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 权限详情对话框 -->
+    <el-dialog
+      v-model="permissionDialogVisible"
+      :title="`${currentRole?.name} 权限详情`"
+      width="900px"
+      :close-on-click-modal="false"
+    >
+      <div class="permission-search">
+        <el-input
+          v-model="permissionSearchKeyword"
+          placeholder="搜索菜单名称或编码"
+          clearable
+          style="width: 300px; margin-right: 10px"
+          @clear="filterPermissions"
+          @keyup.enter="filterPermissions"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+        <el-select
+          v-model="permissionClientFilter"
+          placeholder="按客户端筛选"
+          clearable
+          style="width: 150px; margin-right: 10px"
+          @change="filterPermissions"
+        >
+          <el-option label="管理端" value="admin" />
+          <el-option label="用户端" value="home" />
+        </el-select>
+        <el-select
+          v-model="permissionTypeFilter"
+          placeholder="按权限类型筛选"
+          clearable
+          style="width: 150px"
+          @change="filterPermissions"
+        >
+          <el-option label="直接权限" value="direct" />
+          <el-option label="继承权限" value="inherited" />
+          <el-option label="公开权限" value="public" />
+        </el-select>
+      </div>
+      <el-table
+        :data="filteredPermissions"
+        border
+        v-loading="permissionLoading"
+        style="margin-top: 10px; max-height: 500px; overflow-y: auto"
+      >
+        <el-table-column type="index" label="序号" width="80" />
+        <el-table-column label="菜单名称" min-width="150">
+          <template #default="{ row }">
+            {{ row.name }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="code" label="菜单编码" min-width="150" />
+        <el-table-column prop="clientType" label="客户端" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.clientType === 'admin' ? 'primary' : 'success'">
+              {{ row.clientType === 'admin' ? '管理端' : '用户端' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="权限类型" width="120">
+          <template #default="{ row }">
+            <el-tag :type="getPermissionTypeColor(row)">
+              {{ getPermissionTypeLabel(row) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="继承来源" min-width="150">
+          <template #default="{ row }">
+            <span v-if="row.inheritanceType === 'inherited' && row.source">
+              {{ row.source }}
+            </span>
+            <span v-else class="text-gray">-</span>
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="permissionDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -281,8 +401,12 @@ interface Role {
   name: string;
   code: string;
   description: string;
-  created_at: string;
-  menus?: Menu[];
+  parent_ids?: string[];
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  directMenus?: Menu[];
+  allMenus?: (Menu & { source: string; inheritanceType: 'direct' | 'inherited' })[];
 }
 
 interface Menu {
@@ -352,6 +476,14 @@ const selectedUserIds = ref<string[]>([]);
 // 批量移除成员相关
 const selectedMembers = ref<User[]>([]);
 
+// 权限详情相关
+const permissionDialogVisible = ref(false);
+const permissionLoading = ref(false);
+const permissionSearchKeyword = ref('');
+const permissionClientFilter = ref('');
+const permissionTypeFilter = ref('');
+const rolePermissions = ref<any[]>([]);
+
 const selectedMenus = reactive({
   admin: [] as string[],
   home: [] as string[],
@@ -362,7 +494,11 @@ const form = reactive({
   name: '',
   code: '',
   description: '',
+  parent_ids: [] as string[],
 });
+
+// 所有角色列表（用于父角色选择器）
+const allRoles = ref<Role[]>([]);
 
 // 系统内置角色代码
 const SYSTEM_ROLES = ['super_admin', 'admin', 'developer', 'user'];
@@ -377,8 +513,100 @@ const rules = {
   code: [{ required: true, message: '请输入角色代码', trigger: 'blur' }],
 };
 
-const formatDate = (date: string) => {
+const formatDate = (date: string | undefined) => {
+  if (!date) return '';
   return new Date(date).toLocaleString('zh-CN');
+};
+
+const getRoleNameById = (roleId: string) => {
+  const role = allRoles.value.find(r => r.id === roleId);
+  return role ? role.name : '未知角色';
+};
+
+// 获取权限类型标签
+const getPermissionTypeLabel = (row: any) => {
+  if (row.inheritanceType === 'public') {
+    return '公开权限';
+  }
+  return row.inheritanceType === 'direct' ? '直接权限' : '继承权限';
+};
+
+// 获取权限类型颜色
+const getPermissionTypeColor = (row: any) => {
+  if (row.inheritanceType === 'public') {
+    return 'success';
+  }
+  return row.inheritanceType === 'direct' ? 'primary' : 'info';
+};
+
+// 过滤后的权限列表
+const filteredPermissions = computed(() => {
+  let permissions = [...rolePermissions.value];
+  
+  // 按角色code排序
+  permissions.sort((a, b) => {
+    if (a.code && b.code) {
+      return a.code.localeCompare(b.code);
+    }
+    return 0;
+  });
+  
+  // 按搜索关键词过滤
+  if (permissionSearchKeyword.value) {
+    const keyword = permissionSearchKeyword.value.toLowerCase();
+    permissions = permissions.filter(permission => 
+      permission.name.toLowerCase().includes(keyword) || 
+      (permission.code && permission.code.toLowerCase().includes(keyword))
+    );
+  }
+  
+  // 按客户端过滤
+  if (permissionClientFilter.value) {
+    permissions = permissions.filter(permission => 
+      permission.clientType === permissionClientFilter.value
+    );
+  }
+  
+  // 按权限类型过滤
+  if (permissionTypeFilter.value) {
+    permissions = permissions.filter(permission => {
+      if (permissionTypeFilter.value === 'public') {
+        return !permission.needPermission;
+      }
+      return permission.inheritanceType === permissionTypeFilter.value;
+    });
+  }
+  
+  return permissions;
+});
+
+// 处理权限详情
+const handlePermission = async (row: Role) => {
+  currentRole.value = row;
+  permissionDialogVisible.value = true;
+  permissionLoading.value = true;
+  permissionSearchKeyword.value = '';
+  permissionClientFilter.value = '';
+  permissionTypeFilter.value = '';
+  
+  try {
+    const res = await request.get<any, Role>(`/roles/${row.id}`);
+    if (res.allMenus) {
+      rolePermissions.value = res.allMenus;
+    } else {
+      rolePermissions.value = [];
+    }
+  } catch (error) {
+    console.error('获取角色权限失败:', error);
+    rolePermissions.value = [];
+  } finally {
+    permissionLoading.value = false;
+  }
+};
+
+// 过滤权限
+const filterPermissions = () => {
+  // 计算属性会自动更新
 };
 
 const handleSearch = () => {
@@ -402,14 +630,6 @@ const fetchRoles = async () => {
       return;
     }
     
-    console.log('准备发送请求到:', 'http://localhost:3000/api/roles');
-    console.log('请求参数:', {
-      page: page.value,
-      pageSize: pageSize.value,
-      includeDisabled: 'true',
-    });
-    
-    // 使用request实例，与fetchMenus保持一致
     console.log('准备发送请求到: /roles');
     console.log('请求参数:', {
       page: page.value,
@@ -434,15 +654,27 @@ const fetchRoles = async () => {
     });
     console.log('请求成功，响应:', res);
     // 正确处理分页响应（request拦截器已经处理了后端返回的数据结构）
-    roleList.value = Array.isArray(res?.list) ? res.list : [];
-    total.value = res?.total || 0;
+    roleList.value = Array.isArray(res.list) ? res.list : [];
+    total.value = res.total || 0;
     console.log('角色列表:', roleList.value);
     console.log('角色数量:', roleList.value.length);
+    
+    // 获取所有角色（用于父角色选择器）
+    const allRolesRes = await request.get<any, { list: Role[] }>('/roles', {
+      params: {
+        page: 1,
+        pageSize: 100,
+        includeDisabled: 'true',
+      }
+    });
+    allRoles.value = allRolesRes.list || [];
+    console.log('所有角色列表:', allRoles.value);
   } catch (error: any) {
     console.error('获取角色列表失败:', error);
     console.error('错误信息:', error.message);
     roleList.value = [];
     total.value = 0;
+    allRoles.value = [];
   } finally {
     loading.value = false;
     console.log('fetchRoles函数执行完毕');
@@ -455,14 +687,19 @@ const fetchMenus = async () => {
       request.get<any, Menu[]>('/menus?clientType=admin'),
       request.get<any, Menu[]>('/menus?clientType=home'),
     ]);
-    adminMenus.value = adminRes;
-    homeMenus.value = homeRes;
+    // 打印接收到的菜单数据
+    console.log('Admin menus:', adminRes);
+    console.log('Home menus:', homeRes);
+    // 过滤掉禁用的菜单
+    adminMenus.value = adminRes.filter(menu => menu.status !== 'disabled');
+    homeMenus.value = homeRes.filter(menu => menu.status !== 'disabled');
   } catch (error) {
     console.error('获取菜单列表失败:', error);
   }
 };
 
 const renderContent = (h: any, { data }: any) => {
+  console.log('Menu data:', data);
   return h('span', {
     class: 'menu-item'
   }, [
@@ -471,7 +708,10 @@ const renderContent = (h: any, { data }: any) => {
         'menu-name': true,
         'no-permission': !data.needPermission
       }
-    }, data.name)
+    }, data.name),
+    !data.needPermission ? h('span', {
+      class: 'menu-tag'
+    }, '[全员]') : null
   ]);
 };
 
@@ -480,6 +720,7 @@ const resetForm = () => {
   form.name = '';
   form.code = '';
   form.description = '';
+  form.parent_ids = [];
   selectedMenus.admin = [];
   selectedMenus.home = [];
 };
@@ -488,16 +729,9 @@ const handleAdd = () => {
   isEdit.value = false;
   resetForm();
   
-  // 自动添加不需要权限的菜单
-  const noPermissionAdminMenus = adminMenus.value
-    .filter(menu => !menu.needPermission)
-    .map(menu => menu.id);
-  const noPermissionHomeMenus = homeMenus.value
-    .filter(menu => !menu.needPermission)
-    .map(menu => menu.id);
-  
-  selectedMenus.admin = noPermissionAdminMenus;
-  selectedMenus.home = noPermissionHomeMenus;
+  // 不自动添加不需要权限的菜单，让用户自由选择
+  selectedMenus.admin = [];
+  selectedMenus.home = [];
   
   dialogVisible.value = true;
 };
@@ -508,31 +742,36 @@ const handleEdit = async (row: Role) => {
   form.name = row.name;
   form.code = row.code;
   form.description = row.description;
+  form.parent_ids = row.parent_ids || [];
 
   try {
-    const res = await request.get<any, { menus: Menu[] }>(`/roles/${row.id}`);
-    if (res.menus) {
-      selectedMenus.admin = res.menus
+    console.log('编辑角色，ID:', row.id);
+    if (!row.id) {
+      console.error('角色ID不存在');
+      return;
+    }
+    console.log('准备发送请求到:', `/roles/${row.id}`);
+    const res = await request.get<any, Role>(`/roles/${row.id}`);
+    console.log('获取角色详情成功，响应:', res);
+    // 设置父角色
+    form.parent_ids = res.parent_ids || [];
+    
+    // 清空之前的选择
+    selectedMenus.admin = [];
+    selectedMenus.home = [];
+    
+    // 设置直接菜单权限（根据映射关系判断）
+    if (res.directMenus) {
+      selectedMenus.admin = res.directMenus
         .filter((m: Menu) => m.clientType === 'admin')
         .map((m: Menu) => m.id);
-      selectedMenus.home = res.menus
+      selectedMenus.home = res.directMenus
         .filter((m: Menu) => m.clientType === 'home')
         .map((m: Menu) => m.id);
     }
   } catch (error) {
     console.error('获取角色详情失败:', error);
   }
-
-  // 自动添加不需要权限的菜单
-  const noPermissionAdminMenus = adminMenus.value
-    .filter(menu => !menu.needPermission)
-    .map(menu => menu.id);
-  const noPermissionHomeMenus = homeMenus.value
-    .filter(menu => !menu.needPermission)
-    .map(menu => menu.id);
-  
-  selectedMenus.admin = [...new Set([...selectedMenus.admin, ...noPermissionAdminMenus])];
-  selectedMenus.home = [...new Set([...selectedMenus.home, ...noPermissionHomeMenus])];
 
   dialogVisible.value = true;
 };
@@ -564,19 +803,14 @@ const handleSubmit = async () => {
         const adminChecked = adminTreeRef.value?.getCheckedKeys() || [];
         const homeChecked = homeTreeRef.value?.getCheckedKeys() || [];
         
-        // 获取所有不需要权限的菜单
-        const noPermissionMenus = [
-          ...(adminMenus.value || []),
-          ...(homeMenus.value || [])
-        ].filter(menu => !menu.needPermission).map(menu => menu.id);
-        
-        // 合并选中的菜单和不需要权限的菜单（去重）
-        const menuIds = [...new Set([...adminChecked, ...homeChecked, ...noPermissionMenus])];
+        // 合并选中的菜单（去重）
+        const menuIds = [...new Set([...adminChecked, ...homeChecked])];
 
         const data = {
           name: form.name,
           code: form.code,
           description: form.description,
+          parentIds: form.parent_ids,
           menuIds,
         };
 
@@ -867,8 +1101,21 @@ onMounted(() => {
   align-items: center;
 }
 
+.permission-search {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
 /* 减小表格单元格内边距 */
 :deep(.el-table th>.cell, .el-table td>.cell) {
   padding: 8px 12px;
+}
+
+.text-gray {
+  color: #909399;
 }
 </style>

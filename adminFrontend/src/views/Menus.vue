@@ -12,11 +12,34 @@
           </div>
           <div class="header-right">
             <el-select
+              v-model="filterClientType"
+              placeholder="按客户端筛选"
+              clearable
+              style="width: 150px; margin-right: 10px"
+              @clear="handleSearch"
+              @change="handleSearch"
+            >
+              <el-option label="管理端" value="admin" />
+              <el-option label="用户端" value="home" />
+            </el-select>
+            <el-select
+              v-model="filterPosition"
+              placeholder="按菜单位置筛选"
+              clearable
+              style="width: 150px; margin-right: 10px"
+              @clear="handleSearch"
+              @change="handleSearch"
+            >
+              <el-option label="左导航" value="left" />
+              <el-option label="头像菜单" value="avatar" />
+            </el-select>
+            <el-select
               v-model="filterStatus"
               placeholder="按状态筛选"
               clearable
               style="width: 150px; margin-right: 10px"
               @clear="handleSearch"
+              @change="handleSearch"
             >
               <el-option label="启用" value="enabled" />
               <el-option label="禁用" value="disabled" />
@@ -29,6 +52,7 @@
               clearable
               style="width: 150px; margin-right: 10px"
               @clear="handleSearch"
+              @change="handleSearch"
             >
               <el-option label="需要权限" value="true" />
               <el-option label="无需权限" value="false" />
@@ -40,6 +64,7 @@
               style="width: 200px"
               @clear="handleSearch"
               @keyup.enter="handleSearch"
+              @input="handleSearch"
             >
               <template #prefix>
                 <el-icon><Search /></el-icon>
@@ -66,7 +91,48 @@
         :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
       >
         <el-table-column type="index" label="序号" width="80" />
-        <el-table-column prop="name" label="菜单名称" min-width="150" />
+        <el-table-column prop="name" label="菜单名称" min-width="150">
+          <template #default="{ row }">
+            <div
+              v-if="!editingRow || editingRow.id !== row.id || editingField !== 'name'"
+              @dblclick="startEditing(row, 'name')"
+              class="editable-cell"
+            >
+              {{ row.name }}
+            </div>
+            <el-input
+              v-else
+              v-model="row.name"
+              size="small"
+              @blur="handleInlineEdit(row, 'name')"
+              @keyup.enter="handleInlineEdit(row, 'name')"
+              @keyup.esc="cancelEditing"
+              ref="nameInput"
+              auto-focus
+            />
+          </template>
+        </el-table-column>
+        <el-table-column prop="code" label="菜单编码" min-width="150">
+          <template #default="{ row }">
+            <div
+              v-if="!editingRow || editingRow.id !== row.id || editingField !== 'code'"
+              @dblclick="startEditing(row, 'code')"
+              class="editable-cell"
+            >
+              {{ row.code }}
+            </div>
+            <el-input
+              v-else
+              v-model="row.code"
+              size="small"
+              @blur="handleInlineEdit(row, 'code')"
+              @keyup.enter="handleInlineEdit(row, 'code')"
+              @keyup.esc="cancelEditing"
+              ref="codeInput"
+              auto-focus
+            />
+          </template>
+        </el-table-column>
         <el-table-column prop="path" label="路由路径" min-width="150" />
         <el-table-column prop="component" label="组件" min-width="150" />
         <el-table-column prop="icon" label="图标" width="100">
@@ -77,19 +143,156 @@
             <span v-else-if="row.icon" class="icon-text">{{ row.icon }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="sort_order" label="排序" width="80" />
-        <el-table-column prop="client_type" label="客户端" width="100">
+        <el-table-column prop="sortOrder" label="排序" width="80">
           <template #default="{ row }">
-            <el-tag :type="row.client_type === 'admin' ? 'primary' : 'success'">
-              {{ row.client_type === 'admin' ? '管理端' : '用户端' }}
-            </el-tag>
+            <div
+              v-if="!editingRow || editingRow.id !== row.id || editingField !== 'sortOrder'"
+              @dblclick="startEditing(row, 'sortOrder')"
+              class="editable-cell"
+            >
+              {{ row.sortOrder || 0 }}
+            </div>
+            <el-input-number
+              v-else
+              v-model="row.sortOrder"
+              :min="0"
+              :max="999"
+              size="small"
+              @blur="handleInlineEdit(row, 'sortOrder')"
+              @change="handleInlineEdit(row, 'sortOrder')"
+              @keyup.enter="handleInlineEdit(row, 'sortOrder')"
+              @keyup.esc="cancelEditing"
+              ref="sortInput"
+              auto-focus
+            />
+          </template>
+        </el-table-column>
+        <el-table-column prop="clientType" label="客户端" width="100">
+          <template #default="{ row }">
+            <div
+              v-if="!editingRow || editingRow.id !== row.id || editingField !== 'clientType'"
+              @dblclick="startEditing(row, 'clientType')"
+              class="editable-cell"
+            >
+              <el-tag :type="row.clientType === 'admin' ? 'primary' : 'success'">
+                {{ row.clientType === 'admin' ? '管理端' : '用户端' }}
+              </el-tag>
+            </div>
+            <el-select
+              v-else
+              v-model="row.clientType"
+              size="small"
+              @change="handleInlineEdit(row, 'clientType')"
+              @blur="handleInlineEdit(row, 'clientType')"
+              @keyup.esc="cancelEditing"
+              style="width: 90px"
+              ref="clientTypeSelect"
+            >
+              <el-option label="管理端" value="admin" />
+              <el-option label="用户端" value="home" />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column prop="position" label="菜单位置" width="100">
+          <template #default="{ row }">
+            <div
+              v-if="!editingRow || editingRow.id !== row.id || editingField !== 'position'"
+              @dblclick="startEditing(row, 'position')"
+              class="editable-cell"
+            >
+              <el-tag :type="row.position === 'left' ? 'primary' : 'warning'">
+                {{ row.position === 'left' ? '左导航' : '头像菜单' }}
+              </el-tag>
+            </div>
+            <el-select
+              v-else
+              v-model="row.position"
+              size="small"
+              @change="handleInlineEdit(row, 'position')"
+              @blur="handleInlineEdit(row, 'position')"
+              @keyup.esc="cancelEditing"
+              style="width: 90px"
+              ref="positionSelect"
+            >
+              <el-option label="左导航" value="left" />
+              <el-option label="头像菜单" value="avatar" />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column prop="needPermission" label="需要权限" width="100">
+          <template #default="{ row }">
+            <div
+              v-if="!editingRow || editingRow.id !== row.id || editingField !== 'needPermission'"
+              @dblclick="startEditing(row, 'needPermission')"
+              class="editable-cell"
+            >
+              <el-tag :type="row.needPermission ? 'success' : 'info'">
+                {{ row.needPermission ? '是' : '否' }}
+              </el-tag>
+            </div>
+            <el-switch
+              v-else
+              v-model="row.needPermission"
+              active-text="是"
+              inactive-text="否"
+              @change="handleInlineEdit(row, 'needPermission')"
+              @blur="handleInlineEdit(row, 'needPermission')"
+              @keyup.esc="cancelEditing"
+            />
           </template>
         </el-table-column>
         <el-table-column prop="status" label="菜单状态" width="120">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)">
-              {{ getStatusLabel(row.status) }}
-            </el-tag>
+            <div
+              v-if="!editingRow || editingRow.id !== row.id || editingField !== 'status'"
+              @dblclick="startEditing(row, 'status')"
+              class="editable-cell"
+            >
+              <el-tag :type="getStatusType(row.status)">
+                {{ getStatusLabel(row.status) }}
+              </el-tag>
+            </div>
+            <el-select
+              v-else
+              v-model="row.status"
+              size="small"
+              @change="handleInlineEdit(row, 'status')"
+              @blur="handleInlineEdit(row, 'status')"
+              @keyup.esc="cancelEditing"
+              style="width: 100px"
+              ref="statusSelect"
+            >
+              <el-option label="启用" value="enabled" />
+              <el-option label="禁用" value="disabled" />
+              <el-option label="开发中" value="in_progress" />
+              <el-option label="未实现" value="not_implemented" />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column prop="target" label="显示方式" width="120">
+          <template #default="{ row }">
+            <div
+              v-if="!editingRow || editingRow.id !== row.id || editingField !== 'target'"
+              @dblclick="startEditing(row, 'target')"
+              class="editable-cell"
+            >
+              <el-tag :type="row.target === '_self' ? 'primary' : 'success'">
+                {{ row.target === '_self' ? '主内容区' : '新页签' }}
+              </el-tag>
+            </div>
+            <el-select
+              v-else
+              v-model="row.target"
+              size="small"
+              @change="handleInlineEdit(row, 'target')"
+              @blur="handleInlineEdit(row, 'target')"
+              @keyup.esc="cancelEditing"
+              style="width: 100px"
+              ref="targetSelect"
+            >
+              <el-option label="主内容区" value="_self" />
+              <el-option label="新页签" value="_blank" />
+            </el-select>
           </template>
         </el-table-column>
         <el-table-column label="操作" min-width="200">
@@ -115,7 +318,48 @@
           border
         >
           <el-table-column type="index" label="序号" width="80" />
-          <el-table-column prop="name" label="菜单名称" min-width="150" />
+          <el-table-column prop="name" label="菜单名称" min-width="150">
+            <template #default="{ row }">
+              <div
+                v-if="!editingRow || editingRow.id !== row.id || editingField !== 'name'"
+                @dblclick="startEditing(row, 'name')"
+                class="editable-cell"
+              >
+                {{ row.name }}
+              </div>
+              <el-input
+                v-else
+                v-model="row.name"
+                size="small"
+                @blur="handleInlineEdit(row, 'name')"
+                @keyup.enter="handleInlineEdit(row, 'name')"
+                @keyup.esc="cancelEditing"
+                ref="nameInput"
+                auto-focus
+              />
+            </template>
+          </el-table-column>
+          <el-table-column prop="code" label="菜单编码" min-width="150">
+            <template #default="{ row }">
+              <div
+                v-if="!editingRow || editingRow.id !== row.id || editingField !== 'code'"
+                @dblclick="startEditing(row, 'code')"
+                class="editable-cell"
+              >
+                {{ row.code }}
+              </div>
+              <el-input
+                v-else
+                v-model="row.code"
+                size="small"
+                @blur="handleInlineEdit(row, 'code')"
+                @keyup.enter="handleInlineEdit(row, 'code')"
+                @keyup.esc="cancelEditing"
+                ref="codeInput"
+                auto-focus
+              />
+            </template>
+          </el-table-column>
           <el-table-column prop="path" label="路由路径" min-width="150" />
           <el-table-column prop="component" label="组件" min-width="150" />
           <el-table-column prop="icon" label="图标" width="100">
@@ -126,24 +370,161 @@
               <span v-else-if="row.icon" class="icon-text">{{ row.icon }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="parent_id" label="上级菜单" min-width="150">
+          <el-table-column prop="parentId" label="上级菜单" min-width="150">
             <template #default="{ row }">
-              {{ getParentMenuName(row.parent_id) }}
+              {{ getParentMenuName(row.parentId) }}
             </template>
           </el-table-column>
-          <el-table-column prop="sort_order" label="排序" width="80" />
-          <el-table-column prop="client_type" label="客户端" width="100">
+          <el-table-column prop="sortOrder" label="排序" width="80">
             <template #default="{ row }">
-              <el-tag :type="row.client_type === 'admin' ? 'primary' : 'success'">
-                {{ row.client_type === 'admin' ? '管理端' : '用户端' }}
-              </el-tag>
+              <div
+                v-if="!editingRow || editingRow.id !== row.id || editingField !== 'sortOrder'"
+                @dblclick="startEditing(row, 'sortOrder')"
+                class="editable-cell"
+              >
+                {{ row.sortOrder || 0 }}
+              </div>
+              <el-input-number
+                v-else
+                v-model="row.sortOrder"
+                :min="0"
+                :max="999"
+                size="small"
+                @blur="handleInlineEdit(row, 'sortOrder')"
+                @change="handleInlineEdit(row, 'sortOrder')"
+                @keyup.enter="handleInlineEdit(row, 'sortOrder')"
+                @keyup.esc="cancelEditing"
+                ref="sortInput"
+                auto-focus
+              />
+            </template>
+          </el-table-column>
+          <el-table-column prop="clientType" label="客户端" width="100">
+            <template #default="{ row }">
+              <div
+                v-if="!editingRow || editingRow.id !== row.id || editingField !== 'clientType'"
+                @dblclick="startEditing(row, 'clientType')"
+                class="editable-cell"
+              >
+                <el-tag :type="row.clientType === 'admin' ? 'primary' : 'success'">
+                  {{ row.clientType === 'admin' ? '管理端' : '用户端' }}
+                </el-tag>
+              </div>
+              <el-select
+                v-else
+                v-model="row.clientType"
+                size="small"
+                @change="handleInlineEdit(row, 'clientType')"
+                @blur="handleInlineEdit(row, 'clientType')"
+                @keyup.esc="cancelEditing"
+                style="width: 90px"
+                ref="clientTypeSelect"
+              >
+                <el-option label="管理端" value="admin" />
+                <el-option label="用户端" value="home" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column prop="position" label="菜单位置" width="100">
+            <template #default="{ row }">
+              <div
+                v-if="!editingRow || editingRow.id !== row.id || editingField !== 'position'"
+                @dblclick="startEditing(row, 'position')"
+                class="editable-cell"
+              >
+                <el-tag :type="row.position === 'left' ? 'primary' : 'warning'">
+                  {{ row.position === 'left' ? '左导航' : '头像菜单' }}
+                </el-tag>
+              </div>
+              <el-select
+                v-else
+                v-model="row.position"
+                size="small"
+                @change="handleInlineEdit(row, 'position')"
+                @blur="handleInlineEdit(row, 'position')"
+                @keyup.esc="cancelEditing"
+                style="width: 90px"
+                ref="positionSelect"
+              >
+                <el-option label="左导航" value="left" />
+                <el-option label="头像菜单" value="avatar" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column prop="needPermission" label="需要权限" width="100">
+            <template #default="{ row }">
+              <div
+                v-if="!editingRow || editingRow.id !== row.id || editingField !== 'needPermission'"
+                @dblclick="startEditing(row, 'needPermission')"
+                class="editable-cell"
+              >
+                <el-tag :type="row.needPermission ? 'success' : 'info'">
+                  {{ row.needPermission ? '是' : '否' }}
+                </el-tag>
+              </div>
+              <el-switch
+                v-else
+                v-model="row.needPermission"
+                active-text="是"
+                inactive-text="否"
+                @change="handleInlineEdit(row, 'needPermission')"
+                @blur="handleInlineEdit(row, 'needPermission')"
+                @keyup.esc="cancelEditing"
+              />
             </template>
           </el-table-column>
           <el-table-column prop="status" label="菜单状态" width="120">
             <template #default="{ row }">
-              <el-tag :type="getStatusType(row.status)">
-                {{ getStatusLabel(row.status) }}
-              </el-tag>
+              <div
+                v-if="!editingRow || editingRow.id !== row.id || editingField !== 'status'"
+                @dblclick="startEditing(row, 'status')"
+                class="editable-cell"
+              >
+                <el-tag :type="getStatusType(row.status)">
+                  {{ getStatusLabel(row.status) }}
+                </el-tag>
+              </div>
+              <el-select
+                v-else
+                v-model="row.status"
+                size="small"
+                @change="handleInlineEdit(row, 'status')"
+                @blur="handleInlineEdit(row, 'status')"
+                @keyup.esc="cancelEditing"
+                style="width: 100px"
+                ref="statusSelect"
+              >
+                <el-option label="启用" value="enabled" />
+                <el-option label="禁用" value="disabled" />
+                <el-option label="开发中" value="in_progress" />
+                <el-option label="未实现" value="not_implemented" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column prop="target" label="显示方式" width="120">
+            <template #default="{ row }">
+              <div
+                v-if="!editingRow || editingRow.id !== row.id || editingField !== 'target'"
+                @dblclick="startEditing(row, 'target')"
+                class="editable-cell"
+              >
+                <el-tag :type="row.target === '_self' ? 'primary' : 'success'">
+                  {{ row.target === '_self' ? '主内容区' : '新页签' }}
+                </el-tag>
+              </div>
+              <el-select
+                v-else
+                v-model="row.target"
+                size="small"
+                @change="handleInlineEdit(row, 'target')"
+                @blur="handleInlineEdit(row, 'target')"
+                @keyup.esc="cancelEditing"
+                style="width: 100px"
+                ref="targetSelect"
+              >
+                <el-option label="主内容区" value="_self" />
+                <el-option label="新页签" value="_blank" />
+              </el-select>
             </template>
           </el-table-column>
           <el-table-column label="操作" min-width="200">
@@ -191,6 +572,9 @@
         <el-form-item label="菜单名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入菜单名称" />
         </el-form-item>
+        <el-form-item label="菜单编码" prop="code">
+          <el-input v-model="form.code" placeholder="请输入菜单编码，如：users" />
+        </el-form-item>
         <el-form-item label="路由路径" prop="path">
           <el-input v-model="form.path" placeholder="请输入路由路径，如：/users" />
         </el-form-item>
@@ -233,6 +617,12 @@
             <el-radio label="home">用户端</el-radio>
           </el-radio-group>
         </el-form-item>
+        <el-form-item label="菜单位置" prop="position">
+          <el-radio-group v-model="form.position">
+            <el-radio label="left">左导航</el-radio>
+            <el-radio label="avatar">头像菜单</el-radio>
+          </el-radio-group>
+        </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-select v-model="form.status" placeholder="请选择状态">
             <el-option label="启用" value="enabled" />
@@ -243,6 +633,12 @@
         </el-form-item>
         <el-form-item label="需要权限" prop="needPermission">
           <el-switch v-model="form.needPermission" />
+        </el-form-item>
+        <el-form-item label="显示方式" prop="target">
+          <el-select v-model="form.target" placeholder="请选择显示方式">
+            <el-option label="主内容区显示" value="_self" />
+            <el-option label="新页签显示" value="_blank" />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -401,16 +797,20 @@ import request from '../utils/request';
 interface Menu {
   id: string;
   name: string;
+  code: string;
   path: string;
   component: string;
   icon: string;
-  parent_id: string | null;
-  sort_order: number;
+  parentId: string | null;
+  sortOrder: number;
   type: string;
   status: string;
-  client_type: string;
-  need_permission: boolean;
-  created_at: string;
+  clientType: string;
+  needPermission: boolean;
+  position: string;
+  target: string;
+  createdAt: string;
+  updatedAt: string;
   children?: Menu[];
 }
 
@@ -440,6 +840,8 @@ const total = ref(0);
 const searchKeyword = ref('');
 const filterStatus = ref('');
 const filterNeedPermission = ref('');
+const filterClientType = ref('');
+const filterPosition = ref('');
 
 // 权限管理相关
 const permissionDialogVisible = ref(false);
@@ -465,21 +867,68 @@ const selectedRoleIds = ref<string[]>([]);
 // 批量解除权限相关
 const selectedRoles = ref<Role[]>([]);
 
+// 行内编辑相关
+const editingRow = ref<Menu | null>(null);
+const editingField = ref<string>('');
+const nameInput = ref();
+const codeInput = ref();
+const statusSelect = ref();
+const sortInput = ref();
+const clientTypeSelect = ref();
+const positionSelect = ref();
+const targetSelect = ref();
+
+const startEditing = (row: Menu, field: string) => {
+  editingRow.value = row;
+  editingField.value = field;
+  // 延迟聚焦输入框
+  setTimeout(() => {
+    if (field === 'name' && nameInput.value) {
+      nameInput.value.focus();
+    } else if (field === 'code' && codeInput.value) {
+      codeInput.value.focus();
+    } else if (field === 'status' && statusSelect.value) {
+      statusSelect.value.focus();
+    } else if (field === 'sortOrder' && sortInput.value) {
+      sortInput.value.focus();
+    } else if (field === 'clientType' && clientTypeSelect.value) {
+      clientTypeSelect.value.focus();
+    } else if (field === 'position' && positionSelect.value) {
+      positionSelect.value.focus();
+    } else if (field === 'target' && targetSelect.value) {
+      targetSelect.value.focus();
+    } else if (field === 'needPermission' && statusSelect.value) {
+      statusSelect.value.focus();
+    }
+  }, 100);
+};
+
+const cancelEditing = () => {
+  editingRow.value = null;
+  editingField.value = '';
+  // 重新获取数据，恢复原始值
+  fetchMenus();
+};
+
 const form = reactive({
   id: '',
   name: '',
+  code: '',
   path: '',
   component: '',
   icon: '',
   parentId: null as string | null,
   sortOrder: 0,
   clientType: 'admin',
+  position: 'left',
   status: 'enabled',
   needPermission: true,
+  target: '_self',
 });
 
 const rules = {
   name: [{ required: true, message: '请输入菜单名称', trigger: 'blur' }],
+  code: [{ required: true, message: '请输入菜单编码', trigger: 'blur' }],
   path: [{ required: true, message: '请输入路由路径', trigger: 'blur' }],
   component: [{ required: true, message: '请输入组件名称', trigger: 'blur' }],
 };
@@ -539,6 +988,7 @@ const handleSearch = () => {
 
 const fetchMenus = async () => {
   try {
+    console.log('开始获取菜单列表，视图模式:', viewMode.value);
     const params: any = {};
     if (searchKeyword.value) {
       params.keyword = searchKeyword.value;
@@ -549,13 +999,23 @@ const fetchMenus = async () => {
     if (filterNeedPermission.value !== '') {
       params.needPermission = filterNeedPermission.value;
     }
+    if (filterClientType.value) {
+      params.clientType = filterClientType.value;
+    }
+    if (filterPosition.value) {
+      params.position = filterPosition.value;
+    }
     
     if (viewMode.value === 'tree') {
+      console.log('请求树形菜单数据，参数:', params);
       const res = await request.get<any, Menu[]>('/menus', { params });
-      menuList.value = res;
+      console.log('树形菜单响应:', res);
+      menuList.value = Array.isArray(res) ? res : [];
+      console.log('处理后 menuList:', menuList.value);
       // 获取可作为上级的菜单（一级菜单）
-      parentMenus.value = flattenMenus(res).filter((m: Menu) => !m.parent_id);
+      parentMenus.value = flattenMenus(menuList.value).filter((m: Menu) => !m.parentId);
     } else {
+      console.log('请求列表菜单数据，参数:', { ...params, flatten: true, page: page.value, pageSize: pageSize.value });
       const res = await request.get<any, { list: Menu[]; total: number }>('/menus', {
         params: {
           ...params,
@@ -564,10 +1024,12 @@ const fetchMenus = async () => {
           pageSize: pageSize.value,
         }
       });
-      flatMenuList.value = res.list;
-      total.value = res.total;
+      console.log('列表菜单响应:', res);
+      flatMenuList.value = Array.isArray(res?.list) ? res.list : [];
+      console.log('处理后 flatMenuList:', flatMenuList.value);
+      total.value = res?.total || 0;
       // 获取所有菜单用于上级菜单选择
-      parentMenus.value = flatMenuList.value.filter((m: Menu) => !m.parent_id);
+      parentMenus.value = flatMenuList.value.filter((m: Menu) => !m.parentId);
     }
   } catch (error) {
     console.error('获取菜单列表失败:', error);
@@ -591,9 +1053,12 @@ const handleCurrentChange = (val: number) => {
 
 const flattenMenus = (menus: Menu[]): Menu[] => {
   const result: Menu[] = [];
+  if (!Array.isArray(menus)) {
+    return result;
+  }
   for (const menu of menus) {
     result.push(menu);
-    if (menu.children && menu.children.length > 0) {
+    if (menu.children && Array.isArray(menu.children) && menu.children.length > 0) {
       result.push(...flattenMenus(menu.children));
     }
   }
@@ -612,14 +1077,17 @@ const handleAdd = () => {
   Object.assign(form, {
     id: '',
     name: '',
+    code: '',
     path: '',
     component: '',
     icon: '',
     parentId: null,
     sortOrder: 0,
     clientType: 'admin',
+    position: 'left',
     status: 'enabled',
     needPermission: true,
+    target: '_self',
   });
   dialogVisible.value = true;
 };
@@ -629,14 +1097,17 @@ const handleEdit = async (row: Menu) => {
   Object.assign(form, {
     id: row.id,
     name: row.name,
+    code: row.code,
     path: row.path,
     component: row.component,
     icon: row.icon,
-    parentId: row.parent_id,
-    sortOrder: row.sort_order,
-    clientType: row.client_type,
+    parentId: row.parentId,
+    sortOrder: row.sortOrder,
+    clientType: row.clientType,
+    position: row.position || 'left',
     status: row.status,
-    needPermission: row.need_permission,
+    needPermission: row.needPermission,
+    target: row.target || '_self',
   });
   dialogVisible.value = true;
 };
@@ -649,14 +1120,17 @@ const handleSubmit = async () => {
   try {
     const data = {
       name: form.name,
+      code: form.code,
       path: form.path,
       component: form.component,
       icon: form.icon,
       parentId: form.parentId,
       sortOrder: form.sortOrder,
       clientType: form.clientType,
+      position: form.position,
       status: form.status,
       needPermission: form.needPermission,
+      target: form.target,
     };
     
     if (isEdit.value) {
@@ -689,6 +1163,75 @@ const handleDelete = async (row: Menu) => {
     if (error !== 'cancel') {
       console.error('删除菜单失败:', error);
     }
+  }
+};
+
+const handleInlineEdit = async (row: Menu, field: string) => {
+  try {
+    // 构建只包含被编辑字段的更新数据
+    const updateData = {};
+    
+    // 根据被编辑的字段设置相应的数据
+    switch (field) {
+      case 'name':
+        updateData.name = row.name;
+        break;
+      case 'code':
+        updateData.code = row.code;
+        break;
+      case 'sortOrder':
+        updateData.sortOrder = row.sortOrder || 0;
+        break;
+      case 'status':
+        updateData.status = row.status || 'enabled';
+        break;
+      case 'needPermission':
+        updateData.needPermission = row.needPermission;
+        break;
+      case 'clientType':
+        updateData.clientType = row.clientType || 'admin';
+        break;
+      case 'position':
+        updateData.position = row.position || 'left';
+        break;
+      case 'target':
+        updateData.target = row.target || '_self';
+        break;
+      default:
+        // 对于其他字段，使用完整更新
+        Object.assign(updateData, {
+          name: row.name,
+          code: row.code,
+          path: row.path,
+          component: row.component,
+          icon: row.icon,
+          parentId: row.parentId || null,
+          sortOrder: row.sortOrder || 0,
+          type: row.type || 'menu',
+          status: row.status || 'enabled',
+          clientType: row.clientType || 'admin',
+          position: row.position || 'left',
+          needPermission: row.needPermission,
+          target: row.target || '_self'
+        });
+    }
+    
+    // 发送更新请求
+    await request.put(`/menus/${row.id}`, updateData);
+    ElMessage.success('更新成功');
+    // 清除编辑状态
+    editingRow.value = null;
+    editingField.value = '';
+    // 重新获取菜单数据，确保所有数据都是最新的
+    fetchMenus();
+  } catch (error) {
+    console.error('更新菜单失败:', error);
+    ElMessage.error('更新失败，请重试');
+    // 重新获取菜单数据，恢复原始值
+    fetchMenus();
+    // 清除编辑状态
+    editingRow.value = null;
+    editingField.value = '';
   }
 };
 
@@ -923,5 +1466,16 @@ onMounted(() => {
 .search-left {
   display: flex;
   align-items: center;
+}
+
+.editable-cell {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.editable-cell:hover {
+  background-color: rgba(0, 0, 0, 0.05);
 }
 </style>

@@ -28,6 +28,16 @@ const routes = [
         name: 'Profile',
         component: () => import('../views/Profile.vue'),
       },
+      {
+        path: '/user-models',
+        name: 'UserModels',
+        component: () => import('../views/UserModels.vue'),
+      },
+      {
+        path: '/user-agents',
+        name: 'UserAgents',
+        component: () => import('../views/UserAgents.vue'),
+      },
     ],
   },
 ];

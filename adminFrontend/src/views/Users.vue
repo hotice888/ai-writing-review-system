@@ -84,16 +84,18 @@
         </el-table-column>
         <el-table-column label="操作" min-width="120">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEditUser(row)">
-              编辑
-            </el-button>
-            <el-button
-              v-if="!isAdminUser(row)"
-              type="danger" link
-              @click="handleDelete(row)"
-            >
-              删除
-            </el-button>
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <el-button type="primary" link @click="handleEditUser(row)">
+                编辑
+              </el-button>
+              <el-button
+                v-if="!isAdminUser(row)"
+                type="danger" link
+                @click="handleDelete(row)"
+              >
+                删除
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </TablePage>

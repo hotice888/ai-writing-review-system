@@ -23,6 +23,11 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/roles', require('./routes/roles'));
 app.use('/api/menus', require('./routes/menus'));
+app.use('/api/models', require('./routes/models'));
+app.use('/api/user-models', require('./routes/userModels'));
+app.use('/api/agents', require('./routes/agents'));
+app.use('/api/user-agents', require('./routes/userAgents'));
+app.use('/api/model-providers', require('./routes/modelProviders'));
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -42,16 +47,9 @@ const createAdminUser = async () => {
       );
       const userId = userResult.rows[0].id;
       
-      // 为admin用户分配超级管理员和管理员角色
-      const superAdminRole = await pool.query("SELECT id FROM roles WHERE code = 'super_admin'");
+      // 为admin用户分配管理员角色
       const adminRole = await pool.query("SELECT id FROM roles WHERE code = 'admin'");
       
-      if (superAdminRole.rows.length > 0) {
-        await pool.query(
-          'INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT (user_id, role_id) DO NOTHING',
-          [userId, superAdminRole.rows[0].id]
-        );
-      }
       if (adminRole.rows.length > 0) {
         await pool.query(
           'INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT (user_id, role_id) DO NOTHING',
@@ -59,12 +57,12 @@ const createAdminUser = async () => {
         );
       }
       
-      console.log('超级管理员账号创建成功');
+      console.log('管理员账号创建成功');
     } else {
-      console.log('超级管理员账号已存在');
+      console.log('管理员账号已存在');
     }
   } catch (error) {
-    console.error('创建超级管理员账号失败:', error);
+    console.error('创建管理员账号失败:', error);
   }
 };
 

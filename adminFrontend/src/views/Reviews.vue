@@ -31,32 +31,38 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" width="180" />
+        <el-table-column prop="createdAt" label="创建时间" width="200">
+          <template #default="scope">
+            {{ formatDateTime(scope.row.createdAt) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" fixed="right" width="200">
           <template #default="{ row }">
-            <el-button
-              type="success"
-              size="small"
-              @click="handleApprove(row)"
-              v-if="row.status === 'pending'"
-            >
-              通过
-            </el-button>
-            <el-button
-              type="danger"
-              size="small"
-              @click="handleReject(row)"
-              v-if="row.status === 'pending'"
-            >
-              拒绝
-            </el-button>
-            <el-button
-              type="primary"
-              size="small"
-              @click="handleView(row)"
-            >
-              查看
-            </el-button>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <el-button
+                type="success"
+                size="small"
+                @click="handleApprove(row)"
+                v-if="row.status === 'pending'"
+              >
+                通过
+              </el-button>
+              <el-button
+                type="danger"
+                size="small"
+                @click="handleReject(row)"
+                v-if="row.status === 'pending'"
+              >
+                拒绝
+              </el-button>
+              <el-button
+                type="primary"
+                size="small"
+                @click="handleView(row)"
+              >
+                查看
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </TablePage>
@@ -158,6 +164,19 @@ const handleView = (review: Review) => {
   ElMessageBox.alert(review.content, review.title, {
     confirmButtonText: '关闭',
   });
+};
+
+// 格式化时间
+const formatDateTime = (dateString: string) => {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
 onMounted(() => {

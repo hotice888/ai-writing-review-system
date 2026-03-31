@@ -14,7 +14,6 @@
       <el-menu
         v-show="!isMobile || showMobileMenu"
         :default-active="activeMenu"
-        router
         background-color="#304156"
         text-color="#bfcbd9"
         active-text-color="#409eff"
@@ -23,19 +22,21 @@
         <template v-for="menu in menuList" :key="menu.id">
           <el-sub-menu v-if="menu.children && menu.children.length > 0" :index="menu.path">
             <template #title>
-              <el-icon v-if="menu.icon">
-                <component :is="menu.icon" />
-              </el-icon>
-              <span v-if="!isCollapse || isMobile">{{ menu.name }}</span>
+              <div @click="handleParentMenuClick(menu)" class="parent-menu-title">
+                <el-icon v-if="menu.icon">
+                  <component :is="menu.icon" />
+                </el-icon>
+                <span v-if="!isCollapse || isMobile">{{ menu.name }}</span>
+              </div>
             </template>
-            <el-menu-item v-for="child in menu.children" :key="child.id" :index="child.path">
+            <el-menu-item v-for="child in menu.children" :key="child.id" :index="child.path" @click="handleMenuClick(child)">
               <el-icon v-if="child.icon">
                 <component :is="child.icon" />
               </el-icon>
               <span v-if="!isCollapse || isMobile">{{ child.name }}</span>
             </el-menu-item>
           </el-sub-menu>
-          <el-menu-item v-else :index="menu.path">
+          <el-menu-item v-else :index="menu.path" @click="handleMenuClick(menu)">
             <el-icon v-if="menu.icon">
               <component :is="menu.icon" />
             </el-icon>
@@ -75,18 +76,14 @@
               </div>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="profile">
-                    <el-icon><User /></el-icon>
-                    用户信息
-                  </el-dropdown-item>
-                  <el-dropdown-item command="admin" v-if="userStore.isAdmin">
-                    <el-icon><Setting /></el-icon>
-                    后端管理
-                  </el-dropdown-item>
-                  <el-dropdown-item command="logout" divided>
-                    <el-icon><SwitchButton /></el-icon>
-                    退出登录
-                  </el-dropdown-item>
+                  <template v-for="(menu, index) in avatarMenuList" :key="menu.id">
+                    <el-dropdown-item :command="menu.path" :divided="index > 0">
+                      <el-icon v-if="menu.icon">
+                        <component :is="menu.icon" />
+                      </el-icon>
+                      {{ menu.name }}
+                    </el-dropdown-item>
+                  </template>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -106,7 +103,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { ElMessageBox } from 'element-plus';
 import { ArrowDown, Setting, SwitchButton, User, Menu, ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 import { useUserStore } from '../stores/user';
-import { getMenuList } from '../api/auth';
+import { getUserMenus } from '../api/auth';
 
 interface Menu {
   id: string;
@@ -114,6 +111,7 @@ interface Menu {
   path: string;
   component: string;
   icon: string;
+  target?: string; // 显示方式：_self（主内容区）或_blank（新页签）
   children?: Menu[];
 }
 
@@ -122,6 +120,7 @@ const route = useRoute();
 const userStore = useUserStore();
 
 const menuList = ref<Menu[]>([]);
+const avatarMenuList = ref<Menu[]>([]);
 const isMobile = ref(false);
 const showMobileMenu = ref(false);
 const isCollapse = ref(false);
@@ -161,35 +160,67 @@ const toggleCollapse = () => {
 
 const fetchMenus = async () => {
   try {
-    const res = await getMenuList('home');
+    if (!userStore.isLoggedIn) {
+      return;
+    }
+    // 用户端固定使用 'home' 客户端类型
+    const clientType = 'home';
+    // 获取左导航菜单
+    const res = await getUserMenus(clientType, 'left');
     menuList.value = res;
+    // 获取头像下拉菜单
+    const avatarRes = await getUserMenus(clientType, 'avatar');
+    avatarMenuList.value = avatarRes;
   } catch (error) {
     console.error('获取菜单列表失败:', error);
   }
 };
 
+const handleMenuClick = (menu: Menu) => {
+  if (menu.target === '_blank') {
+    // 在新页签中打开
+    window.open(menu.path, '_blank');
+  } else {
+    // 在主内容区显示（默认）
+    router.push(menu.path);
+  }
+};
+
+const handleParentMenuClick = (menu: Menu) => {
+  // 检查菜单是否有路径
+  if (menu.path) {
+    // 执行跳转逻辑
+    if (menu.target === '_blank') {
+      // 在新页签中打开
+      window.open(menu.path, '_blank');
+    } else {
+      // 在主内容区显示（默认）
+      router.push(menu.path);
+    }
+  }
+  // 子菜单的折叠/展开由Element Plus自动处理
+};
+
 const handleCommand = async (command: string) => {
-  switch (command) {
-    case 'profile':
-      router.push('/profile');
-      break;
-    case 'admin':
+    if (command === '/admin' || command === 'admin') {
       const token = localStorage.getItem('token');
-      window.open(`http://localhost:5174?token=${token}`, '_blank');
-      break;
-    case 'logout':
-      try {
-        await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
-          type: 'warning',
-        });
-        userStore.logout();
-        router.push('/login');
-      } catch {
-        // 用户取消
-      }
-      break;
+      const adminUrl = import.meta.env.VITE_ADMIN_BASE_URL || 'http://localhost:5174';
+      window.open(`${adminUrl}?token=${token}`, '_blank');
+    } else if (command === '/logout' || command === 'logout') {
+    try {
+      await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      });
+      userStore.logout();
+      router.push('/login');
+    } catch {
+      // 用户取消
+    }
+  } else {
+    // 处理菜单路径
+    router.push(command);
   }
 };
 
@@ -248,6 +279,16 @@ onBeforeUnmount(() => {
 
 .logo.collapsed h3 {
   font-size: 16px;
+}
+
+.parent-menu-title {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 0 20px;
+  box-sizing: border-box;
 }
 
 .mobile-logo {

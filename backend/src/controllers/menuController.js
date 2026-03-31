@@ -3,7 +3,7 @@ const pool = require('../config/database');
 // 获取所有菜单
 const getMenus = async (req, res) => {
   try {
-    const { clientType, page = 1, pageSize = 10, flatten = false, keyword, status, needPermission } = req.query;
+    const { clientType, page = 1, pageSize = 10, flatten = false, keyword, status, needPermission, position } = req.query;
     let query = 'SELECT * FROM menus WHERE 1=1';
     const params = [];
     let paramIndex = 1;
@@ -28,11 +28,18 @@ const getMenus = async (req, res) => {
       paramIndex++;
     }
     
+    // 按菜单位置筛选
+    if (position) {
+      query += ` AND position = $${paramIndex}`;
+      params.push(position);
+      paramIndex++;
+    }
+    
     // 添加关键词搜索
     if (keyword) {
-      query += ` AND (name LIKE $${paramIndex} OR path LIKE $${paramIndex + 1})`;
-      params.push(`%${keyword}%`, `%${keyword}%`);
-      paramIndex += 2;
+      query += ` AND (name LIKE $${paramIndex} OR path LIKE $${paramIndex + 1} OR code LIKE $${paramIndex + 2})`;
+      params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
+      paramIndex += 3;
     }
     
     if (flatten === 'true') {
@@ -44,7 +51,7 @@ const getMenus = async (req, res) => {
       const total = countResult.rows.length;
       
       // 获取分页数据
-      query += ' ORDER BY sort_order ASC, created_at ASC LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
+      query += ' ORDER BY client_type ASC, position ASC, sort_order ASC, created_at ASC LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
       params.push(parseInt(pageSize), offset);
       
       const result = await pool.query(query, params);
@@ -61,7 +68,7 @@ const getMenus = async (req, res) => {
       });
     } else {
       // 树形结构
-      query += ' ORDER BY sort_order ASC, created_at ASC';
+      query += ' ORDER BY client_type ASC, position ASC, sort_order ASC, created_at ASC';
       const result = await pool.query(query, params);
       
       // 构建树形结构
@@ -117,12 +124,12 @@ const getMenuById = async (req, res) => {
 // 创建菜单
 const createMenu = async (req, res) => {
   try {
-    const { name, path, component, icon, parentId, sortOrder, type, status, clientType, needPermission } = req.body;
+    const { name, code, path, component, icon, parentId, sortOrder, type, status, clientType, needPermission, position } = req.body;
 
     const result = await pool.query(
-      `INSERT INTO menus (name, path, component, icon, parent_id, sort_order, type, status, client_type, need_permission) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-      [name, path, component, icon, parentId || null, sortOrder || 0, type || 'menu', status || 'enabled', clientType || 'admin', needPermission !== false]
+      `INSERT INTO menus (name, code, path, component, icon, parent_id, sort_order, type, status, client_type, need_permission, position) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+      [name, code, path, component, icon, parentId || null, sortOrder || 0, type || 'menu', status || 'enabled', clientType || 'admin', needPermission !== false, position || 'left']
     );
 
     res.json({
@@ -143,10 +150,10 @@ const createMenu = async (req, res) => {
 const updateMenu = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, path, component, icon, parentId, sortOrder, type, status, clientType, needPermission } = req.body;
+    const body = req.body;
 
     const existingMenu = await pool.query(
-      'SELECT id FROM menus WHERE id = $1',
+      'SELECT * FROM menus WHERE id = $1',
       [id]
     );
 
@@ -157,12 +164,94 @@ const updateMenu = async (req, res) => {
       });
     }
 
-    const result = await pool.query(
-      `UPDATE menus 
-       SET name = $1, path = $2, component = $3, icon = $4, parent_id = $5, sort_order = $6, type = $7, status = $8, client_type = $9, need_permission = $10, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $11 RETURNING *`,
-      [name, path, component, icon, parentId || null, sortOrder || 0, type || 'menu', status || 'enabled', clientType || 'admin', needPermission !== false, id]
-    );
+    // 获取现有菜单数据
+    const existingMenuData = existingMenu.rows[0];
+    
+    // 构建更新语句和参数
+    const updateFields = [];
+    const params = [];
+    let paramIndex = 1;
+
+    // 只更新前端提供的字段
+    if (body.name !== undefined) {
+      updateFields.push(`name = $${paramIndex}`);
+      params.push(body.name);
+      paramIndex++;
+    }
+    if (body.code !== undefined) {
+      updateFields.push(`code = $${paramIndex}`);
+      params.push(body.code);
+      paramIndex++;
+    }
+    if (body.path !== undefined) {
+      updateFields.push(`path = $${paramIndex}`);
+      params.push(body.path);
+      paramIndex++;
+    }
+    if (body.component !== undefined) {
+      updateFields.push(`component = $${paramIndex}`);
+      params.push(body.component);
+      paramIndex++;
+    }
+    if (body.icon !== undefined) {
+      updateFields.push(`icon = $${paramIndex}`);
+      params.push(body.icon);
+      paramIndex++;
+    }
+    if (body.parentId !== undefined) {
+      updateFields.push(`parent_id = $${paramIndex}`);
+      params.push(body.parentId || null);
+      paramIndex++;
+    }
+    if (body.sortOrder !== undefined) {
+      updateFields.push(`sort_order = $${paramIndex}`);
+      params.push(body.sortOrder || 0);
+      paramIndex++;
+    }
+    if (body.type !== undefined) {
+      updateFields.push(`type = $${paramIndex}`);
+      params.push(body.type || 'menu');
+      paramIndex++;
+    }
+    if (body.status !== undefined) {
+      updateFields.push(`status = $${paramIndex}`);
+      params.push(body.status || 'enabled');
+      paramIndex++;
+    }
+    if (body.clientType !== undefined) {
+      updateFields.push(`client_type = $${paramIndex}`);
+      params.push(body.clientType || 'admin');
+      paramIndex++;
+    }
+    if (body.needPermission !== undefined) {
+      updateFields.push(`need_permission = $${paramIndex}`);
+      params.push(body.needPermission);
+      paramIndex++;
+    }
+    if (body.position !== undefined) {
+      updateFields.push(`position = $${paramIndex}`);
+      params.push(body.position || 'left');
+      paramIndex++;
+    }
+
+    // 添加updated_at字段
+    updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+
+    // 如果没有字段需要更新，直接返回
+    if (updateFields.length === 1) {
+      return res.json({
+        code: 200,
+        message: '更新成功',
+        data: existingMenuData,
+      });
+    }
+
+    // 构建SQL语句
+    const query = `UPDATE menus SET ${updateFields.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
+    params.push(id);
+
+    // 执行更新
+    const result = await pool.query(query, params);
 
     res.json({
       code: 200,
@@ -344,11 +433,30 @@ const buildMenuTree = (menus, parentId = null) => {
   const tree = [];
   for (const menu of menus) {
     if (menu.parent_id === parentId) {
+      // 转换字段名
+      const menuObj = {
+        id: menu.id,
+        name: menu.name,
+        code: menu.code,
+        path: menu.path,
+        component: menu.component,
+        icon: menu.icon,
+        parentId: menu.parent_id,
+        sortOrder: menu.sort_order,
+        type: menu.type,
+        status: menu.status,
+        clientType: menu.client_type,
+        needPermission: menu.need_permission,
+        position: menu.position || 'left',
+        createdAt: menu.created_at,
+        updatedAt: menu.updated_at
+      };
+      
       const children = buildMenuTree(menus, menu.id);
       if (children.length > 0) {
-        menu.children = children;
+        menuObj.children = children;
       }
-      tree.push(menu);
+      tree.push(menuObj);
     }
   }
   return tree;

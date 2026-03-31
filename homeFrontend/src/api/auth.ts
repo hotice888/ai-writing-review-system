@@ -17,6 +17,6 @@ export const logout = () => {
   return request.post<any, ApiResponse>('/auth/logout');
 };
 
-export const getMenuList = (clientType: string) => {
-  return request.get<any, any[]>(`/menus?clientType=${clientType}`);
+export const getUserMenus = (clientType: string, position?: string) => {
+  return request.get<any, any[]>('/roles/menus/user', { params: { clientType, position } });
 };

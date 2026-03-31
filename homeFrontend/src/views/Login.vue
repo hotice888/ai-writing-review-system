@@ -68,7 +68,9 @@ const handleLogin = async () => {
     if (valid) {
       loading.value = true;
       try {
+        console.log('开始登录...');
         await userStore.login(loginForm.username, loginForm.password);
+        console.log('登录成功，token:', localStorage.getItem('token'));
         ElMessage.success('登录成功');
         router.push('/');
       } catch (error) {

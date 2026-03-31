@@ -38,6 +38,31 @@ const routes = [
         component: () => import('../views/Menus.vue'),
       },
       {
+        path: '/models',
+        name: 'Models',
+        component: () => import('../views/Models.vue'),
+      },
+      {
+        path: '/model-providers',
+        name: 'ModelProviders',
+        component: () => import('../views/ModelProviders.vue'),
+      },
+      {
+    path: '/user-models',
+    name: 'UserModels',
+    component: () => import('../views/UserModels.vue'),
+  },
+  {
+    path: '/agents',
+    name: 'Agents',
+    component: () => import('../views/Agents.vue'),
+  },
+  {
+    path: '/user-agents',
+    name: 'UserAgents',
+    component: () => import('../views/UserAgents.vue'),
+  },
+      {
         path: '/not-implemented',
         name: 'NotImplemented',
         component: () => import('../views/NotImplemented.vue'),

@@ -13,20 +13,28 @@ const instance = axios.create({
 
 instance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    console.log('发送请求:', config.url);
+    console.log('请求参数:', config.params);
+    console.log('请求体:', config.data);
     const userStore = useUserStore();
     const token = userStore.token;
+    console.log('Token:', token);
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
   (error) => {
+    console.error('请求错误:', error);
     return Promise.reject(error);
   }
 );
 
 instance.interceptors.response.use(
   (response: AxiosResponse) => {
+    console.log('收到响应:', response.config.url);
+    console.log('响应状态:', response.status);
+    console.log('响应数据:', response.data);
     const { code, message, data } = response.data;
     if (code === 200) {
       return data;
@@ -36,6 +44,7 @@ instance.interceptors.response.use(
     }
   },
   (error) => {
+    console.error('响应错误:', error);
     if (error.response?.status === 401) {
       ElMessage.error('登录已过期，请重新登录');
       localStorage.removeItem('token');

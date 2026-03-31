@@ -397,12 +397,59 @@ const rejectReview = async (req, res) => {
   }
 };
 
+const getUserModels = async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT um.*, u.username 
+      FROM user_models um
+      LEFT JOIN users u ON um.user_id = u.id
+      ORDER BY um.created_at DESC
+    `);
+    console.log('用户模型查询结果:', result.rows);
+    res.json({
+      code: 200,
+      message: '获取成功',
+      data: result.rows
+    });
+  } catch (error) {
+    console.error('获取用户模型列表错误:', error);
+    res.json({
+      code: 500,
+      message: '获取用户模型列表失败',
+    });
+  }
+};
+
+const getUserAgents = async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT ua.*, u.username 
+      FROM user_agents ua
+      LEFT JOIN users u ON ua.user_id = u.id
+      ORDER BY ua.created_at DESC
+    `);
+    res.json({
+      code: 200,
+      message: '获取成功',
+      data: result.rows
+    });
+  } catch (error) {
+    console.error('获取用户智能体列表错误:', error);
+    res.json({
+      code: 500,
+      message: '获取用户智能体列表失败',
+    });
+  }
+};
+
 module.exports = {
   getUserList,
   getUserById,
   createUser,
   updateUser,
   deleteUser,
+  getUserModels,
+  getUserAgents,
   getReviewList,
   approveReview,
   rejectReview,

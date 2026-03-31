@@ -185,46 +185,136 @@ await query('DELETE FROM menus WHERE id = $1', [id]);
 3. 前端根据菜单结构渲染导航
 
 #### 菜单加载权限逻辑说明
-菜单加载权限逻辑基于多个条件组合判断，具体规则如下：
+菜单加载权限逻辑基于两步查询合并的方式实现，具体规则如下：
 
-1. **状态条件（必须满足）
-   - 菜单状态不能为 `disabled`（禁用的菜单不加载
-   - 同时满足以下任一条件：
-     - 菜单状态为 `enabled`（已启用）
-     - 菜单状态为 `not_implemented`（未实现）
-     - 菜单状态为 `in_progress`（开发中）且用户拥有 `developer` 角色
+1. **第一步：获取无需权限的菜单**
+   - 条件：
+     - 菜单状态不能为 `disabled`（禁用的菜单不加载）
+     - 菜单的 `need_permission` 为 `false`（无需权限）
+     - 同时满足以下任一状态条件：
+       - 菜单状态为 `enabled`（已启用）
+       - 菜单状态为 `not_implemented`（未实现）
+       - 菜单状态为 `in_progress`（开发中）且用户拥有 `developer` 角色
 
-2. **权限条件（必须满足）
-   - 菜单的 `need_permission` 为 `false`（无需权限）
-   - 或菜单的 `need_permission` 为 `true`（需要权限）且用户角色通过 `role_menus` 关联表绑定该菜单
+2. **第二步：获取需要权限的菜单**
+   - 条件：
+     - 菜单状态不能为 `disabled`（禁用的菜单不加载）
+     - 菜单的 `need_permission` 为 `true`（需要权限）
+     - 用户角色通过 `role_menus` 关联表绑定该菜单
+     - 同时满足以下任一状态条件：
+       - 菜单状态为 `enabled`（已启用）
+       - 菜单状态为 `not_implemented`（未实现）
+       - 菜单状态为 `in_progress`（开发中）且用户拥有 `developer` 角色
 
-3. **客户端类型筛选**
-   - 根据请求参数 `clientType` 筛选对应的菜单（可选）
-
-4. **排序**
+3. **第三步：合并与去重**
+   - 将两步查询的结果合并
+   - 按菜单 ID 去重
    - 按 `sort_order` 升序排列
+
+4. **客户端类型筛选**
+   - 在上述两步查询中都可根据请求参数 `clientType` 筛选对应的菜单（可选）
 
 ```javascript
 // 核心SQL查询逻辑
-SELECT DISTINCT m.* FROM menus m
-WHERE m.status != 'disabled'
-AND (
-  m.status = 'enabled'
-  OR (m.status = 'not_implemented')
-  OR (m.status = 'in_progress' AND isDeveloper)
-)
-AND (
-  m.need_permission = false
-  OR (
-    m.need_permission = true
-    AND EXISTS (
-      SELECT 1 FROM role_menus rm
-      INNER JOIN roles r ON rm.role_id = r.id
-      WHERE rm.menu_id = m.id AND r.code = ANY(userRoles)
-    )
+
+// 1. 获取无需权限的菜单
+const noPermissionQuery = `
+  SELECT DISTINCT m.* FROM menus m
+  WHERE m.status != 'disabled'
+  AND m.need_permission = false
+  AND (
+    m.status = 'enabled'
+    OR (m.status = 'not_implemented')
+    OR (m.status = 'in_progress' AND $1)
   )
-)
-ORDER BY m.sort_order ASC
+  ${clientType ? 'AND m.client_type = $2' : ''}
+`;
+
+// 2. 获取需要权限的菜单
+const permissionQuery = `
+  SELECT DISTINCT m.* FROM menus m
+  INNER JOIN role_menus rm ON m.id = rm.menu_id
+  INNER JOIN roles r ON rm.role_id = r.id
+  WHERE m.status != 'disabled'
+  AND m.need_permission = true
+  AND r.code = ANY($${paramIndex})
+  AND (
+    m.status = 'enabled'
+    OR (m.status = 'not_implemented')
+    OR (m.status = 'in_progress' AND $1)
+  )
+  ${clientType ? 'AND m.client_type = $2' : ''}
+`;
+
+// 3. 合并结果并去重排序
+const allMenus = Array.from(menuMap.values()).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+```
+
+#### 角色继承获取菜单逻辑
+角色继承功能允许一个角色继承其他角色的菜单权限，实现权限的层级管理。具体逻辑如下：
+
+1. **数据结构**
+   - 角色表 (`roles`) 添加 `parent_ids` 字段（JSONB 类型），存储父角色 ID 数组
+   - 支持多角色继承，一个角色可以继承多个父角色的权限
+
+2. **权限计算逻辑**
+   - 直接权限：角色通过 `role_menus` 关联表直接绑定的菜单权限
+   - 继承权限：从父角色及其祖先角色继承的菜单权限
+   - 递归计算：通过递归遍历父角色链，收集所有继承的权限
+
+3. **循环依赖检测**
+   - 在设置角色的父角色时，检测是否会形成循环依赖
+   - 使用深度优先搜索（DFS）算法遍历角色继承链，确保无环
+
+4. **权限来源标记**
+   - 在返回角色权限时，标记权限的来源（直接权限或继承权限）
+   - 对于继承权限，显示继承自哪个角色
+
+5. **初始化配置**
+   - 通过常量定义角色的继承关系
+   - 例如：超级管理员和开发人员继承管理员角色的权限
+
+```javascript
+// 角色继承权限计算逻辑
+const getRolePermissions = async (roleId) => {
+  // 获取角色直接权限
+  const directPermissions = await pool.query(
+    `SELECT m.* FROM menus m
+     INNER JOIN role_menus rm ON m.id = rm.menu_id
+     WHERE rm.role_id = $1`,
+    [roleId]
+  );
+
+  // 获取角色信息，包括父角色ID
+  const roleResult = await pool.query('SELECT parent_ids FROM roles WHERE id = $1', [roleId]);
+  const parentIds = roleResult.rows[0]?.parent_ids || [];
+
+  // 递归获取父角色权限
+  let inheritedPermissions = [];
+  for (const parentId of parentIds) {
+    const parentPermissions = await getRolePermissions(parentId);
+    inheritedPermissions = [...inheritedPermissions, ...parentPermissions];
+  }
+
+  // 合并直接权限和继承权限
+  return [...directPermissions.rows, ...inheritedPermissions];
+};
+
+// 循环依赖检测
+const detectCycleDependency = async (roleId, parentIds, visited = new Set()) => {
+  if (visited.has(roleId)) { return true; }
+  visited.add(roleId);
+  for (const parentId of parentIds) {
+    const parentRoleResult = await pool.query('SELECT parent_ids FROM roles WHERE id = $1', [parentId]);
+    if (parentRoleResult.rows.length > 0) {
+      const parentParentIds = parentRoleResult.rows[0].parent_ids || [];
+      if (await detectCycleDependency(parentId, parentParentIds, new Set(visited))) {
+        return true;
+      }
+    }
+  }
+  return false;
+};
 ```
 
 ### 4.3 API权限校验

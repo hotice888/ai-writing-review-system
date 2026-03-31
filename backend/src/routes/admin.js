@@ -6,6 +6,8 @@ const {
   createUser,
   updateUser,
   deleteUser,
+  getUserModels,
+  getUserAgents,
   getReviewList,
   approveReview,
   rejectReview,
@@ -17,6 +19,8 @@ router.get('/users/:userId', authMiddleware, adminMiddleware, getUserById);
 router.post('/users', authMiddleware, adminMiddleware, createUser);
 router.put('/users/:userId', authMiddleware, adminMiddleware, updateUser);
 router.delete('/users/:userId', authMiddleware, adminMiddleware, deleteUser);
+router.get('/user-models', authMiddleware, adminMiddleware, getUserModels);
+router.get('/user-agents', authMiddleware, adminMiddleware, getUserAgents);
 router.get('/reviews', authMiddleware, adminMiddleware, getReviewList);
 router.put('/reviews/:reviewId/approve', authMiddleware, adminMiddleware, approveReview);
 router.put('/reviews/:reviewId/reject', authMiddleware, adminMiddleware, rejectReview);

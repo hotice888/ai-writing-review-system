@@ -13,7 +13,11 @@ export interface Role {
   code: string;
   description?: string;
   status?: string;
-  created_at?: string;
+  parent_ids?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+  directMenus?: any[];
+  allMenus?: any[];
 }
 
 export interface LoginRequest {

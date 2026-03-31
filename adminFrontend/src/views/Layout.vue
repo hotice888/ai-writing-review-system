@@ -102,7 +102,10 @@ interface Menu {
   icon: string;
   status: string;
   type: string;
-  parent_id?: string | null;
+  parentId?: string | null;
+  clientType: string;
+  needPermission: boolean;
+  position: string;
   children?: Menu[];
 }
 
@@ -111,6 +114,7 @@ const route = useRoute();
 const userStore = useUserStore();
 
 const menuList = ref<Menu[]>([]);
+const avatarMenuList = ref<Menu[]>([]);
 const isCollapse = ref(false);
 
 const activeMenu = computed(() => route.path);
@@ -140,9 +144,15 @@ const fetchMenus = async () => {
     if (!userStore.isLoggedIn) {
       return;
     }
-    const res = await getUserMenus('admin');
+    // 管理端固定使用 'admin' 客户端类型
+    const clientType = 'admin';
+    // 获取左导航菜单
+    const res = await getUserMenus(clientType, 'left');
     // 转换为树状结构
     menuList.value = buildMenuTree(res);
+    // 获取头像下拉菜单
+    const avatarRes = await getUserMenus(clientType, 'avatar');
+    avatarMenuList.value = avatarRes;
   } catch (error) {
     console.error('获取菜单列表失败:', error);
   }
@@ -172,7 +182,7 @@ const buildMenuTree = (menus: Menu[]): Menu[] => {
   // 构建树状结构
   for (const menu of menus) {
     if (menu && menu.id) {
-      if (!menu.parent_id) {
+      if (!menu.parentId) {
         // 根菜单
         const menuItem = menuMap.get(menu.id);
         if (menuItem) {
@@ -180,7 +190,7 @@ const buildMenuTree = (menus: Menu[]): Menu[] => {
         }
       } else {
         // 子菜单
-        const parent = menuMap.get(menu.parent_id);
+        const parent = menuMap.get(menu.parentId);
         const menuItem = menuMap.get(menu.id);
         if (parent && menuItem) {
           if (!parent.children) {
