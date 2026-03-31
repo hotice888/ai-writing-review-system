@@ -3,168 +3,162 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <div class="header-left">
-            <span>角色管理</span>
-            <el-button type="primary" @click="handleAdd" style="margin-left: 20px">
-              <el-icon><Plus /></el-icon>
-              新增角色
-            </el-button>
-          </div>
-          <div class="header-right">
-            <el-select
-              v-model="filterStatus"
-              placeholder="按状态筛选"
-              clearable
-              style="width: 150px; margin-right: 10px"
-              @clear="handleSearch"
-            >
-              <el-option label="启用" value="enabled" />
-              <el-option label="禁用" value="disabled" />
-            </el-select>
+          <h2>角色管理</h2>
+          <div class="header-actions">
             <el-input
               v-model="searchKeyword"
               placeholder="搜索角色名称或编码"
               clearable
-              style="width: 200px"
-              @clear="handleSearch"
-              @keyup.enter="handleSearch"
+              style="width: 300px; margin-right: 10px"
+              @clear="fetchRoles"
+              @keyup.enter="fetchRoles"
             >
               <template #prefix>
                 <el-icon><Search /></el-icon>
               </template>
             </el-input>
+            <el-select
+              v-model="filterStatus"
+              placeholder="按状态筛选"
+              clearable
+              style="width: 150px; margin-right: 10px"
+              @change="fetchRoles"
+            >
+              <el-option label="启用" value="enabled" />
+              <el-option label="禁用" value="disabled" />
+            </el-select>
+            <el-button type="primary" @click="handleAdd">
+              <el-icon><Plus /></el-icon> 新增角色
+            </el-button>
           </div>
         </div>
       </template>
-
-      <el-table :data="roleList" border v-loading="loading">
-        <el-table-column type="index" label="序号" width="80" />
-        <el-table-column prop="name" label="角色名称" min-width="150" />
-        <el-table-column prop="code" label="角色代码" min-width="150" />
-        <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="createdAt" label="创建时间" width="180">
+      <el-table
+        :data="roleList"
+        border
+        v-loading="loading"
+        style="width: 100%"
+        stripe
+        :row-style="{ transition: 'all 0.3s ease' }"
+        :cell-style="{ transition: 'all 0.3s ease' }"
+      >
+        <el-table-column type="selection" width="40" align="center" />
+        <el-table-column type="index" label="序号" width="50" align="center" />
+        <el-table-column prop="name" label="角色名称" width="100" show-overflow-tooltip />
+        <el-table-column prop="code" label="角色编码" width="120" show-overflow-tooltip />
+        <el-table-column prop="description" label="角色描述" min-width="280" show-overflow-tooltip />
+        <el-table-column prop="status" label="状态" width="70" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'enabled' ? 'success' : 'danger'" size="small" effect="plain">
+              {{ row.status === 'enabled' ? '启用' : '禁用' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" width="140" align="center">
           <template #default="{ row }">
             {{ formatDate(row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="继承角色" min-width="150">
+        <el-table-column label="操作" fixed="right" width="280" align="center">
           <template #default="{ row }">
-            <div v-if="row.parent_ids && row.parent_ids.length > 0">
-              <el-tag
-                v-for="parentId in row.parent_ids"
-                :key="parentId"
-                size="small"
-                style="margin-right: 5px"
-              >
-                {{ getRoleNameById(parentId) }}
-              </el-tag>
-            </div>
-            <span v-else class="text-gray">无</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" min-width="200">
-          <template #default="{ row }">
-            <div style="display: flex; gap: 12px; align-items: center;">
-              <el-button type="primary" link @click="handleEdit(row)">
-                编辑
-              </el-button>
-              <el-button type="success" link @click="handleMember(row)">
-                成员
-              </el-button>
-              <el-button type="info" link @click="handlePermission(row)">
-                权限
-              </el-button>
-              <el-button type="danger" link @click="handleDelete(row)">
-                删除
-              </el-button>
-            </div>
+            <el-button type="primary" size="small" plain round @click="handleEdit(row)" style="margin-right: 8px">
+              编辑
+            </el-button>
+            <el-button type="info" size="small" plain round @click="handlePermission(row)" style="margin-right: 8px">
+              权限
+            </el-button>
+            <el-button type="warning" size="small" plain round @click="handleMember(row)" style="margin-right: 8px">
+              成员
+            </el-button>
+            <el-button type="danger" size="small" plain round @click="handleDelete(row)">
+              删除
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
-      
       <div class="pagination-container">
         <el-pagination
           v-model:current-page="page"
           v-model:page-size="pageSize"
           :page-sizes="[10, 20, 50, 100]"
-          :total="total"
           layout="total, sizes, prev, pager, next, jumper"
+          :total="total"
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
         />
       </div>
     </el-card>
 
-    <!-- 角色表单对话框 -->
+    <!-- 新增/编辑角色对话框 -->
     <el-dialog
       v-model="dialogVisible"
       :title="isEdit ? '编辑角色' : '新增角色'"
-      width="700px"
+      width="600px"
       :close-on-click-modal="false"
     >
       <el-form
         ref="formRef"
         :model="form"
-        :rules="rules"
-        label-width="100px"
+        label-width="80px"
+        style="margin-top: 20px"
       >
-        <el-form-item label="角色名称" prop="name">
+        <el-form-item label="角色名称" prop="name" :rules="[{ required: true, message: '请输入角色名称', trigger: 'blur' }]">
           <el-input v-model="form.name" placeholder="请输入角色名称" />
         </el-form-item>
-        <el-form-item label="角色代码" prop="code">
-          <el-input 
-            v-model="form.code" 
-            placeholder="请输入角色代码，如：admin" 
-            :disabled="isSystemRole"
-          />
-          <el-text v-if="isSystemRole" type="warning" size="small">
-            系统内置角色代码不允许修改
-          </el-text>
+        <el-form-item label="角色编码" prop="code" :rules="[{ required: true, message: '请输入角色编码', trigger: 'blur' }]">
+          <el-input v-model="form.code" placeholder="请输入角色编码" />
         </el-form-item>
-        <el-form-item label="描述" prop="description">
+        <el-form-item label="角色描述" prop="description">
           <el-input v-model="form.description" type="textarea" placeholder="请输入角色描述" />
         </el-form-item>
-        <el-form-item label="父角色">
+        <el-form-item label="父角色" prop="parent_ids">
           <el-select
             v-model="form.parent_ids"
             multiple
-            placeholder="请选择父角色（可多选）"
+            placeholder="请选择父角色"
             style="width: 100%"
           >
             <el-option
-              v-for="role in allRoles"
+              v-for="role in roleList"
               :key="role.id"
               :label="role.name"
               :value="role.id"
-              :disabled="isEdit && role.id === form.id"
+              :disabled="isEdit && form.id === role.id"
             />
           </el-select>
-          <el-text v-if="isEdit && form.id" type="info" size="small">
-            不能选择自身作为父角色
-          </el-text>
         </el-form-item>
         <el-form-item label="菜单权限">
           <el-tabs v-model="activeTab">
-            <el-tab-pane label="管理端菜单" name="admin">
+            <el-tab-pane label="管理端" name="admin">
               <el-tree
                 ref="adminTreeRef"
                 :data="adminMenus"
                 show-checkbox
                 node-key="id"
-                :props="{ label: 'name', children: 'children' }"
                 :default-checked-keys="selectedMenus.admin"
-                :render-content="renderContent"
+                :props="{
+                  children: 'children',
+                  label: (menu: Menu) => {
+                    return menu.needPermission ? menu.name : `${menu.name} [全员]`;
+                  },
+                }"
+                style="width: 100%; max-height: 600px; overflow-y: auto"
               />
             </el-tab-pane>
-            <el-tab-pane label="用户端菜单" name="home">
+            <el-tab-pane label="用户端" name="home">
               <el-tree
                 ref="homeTreeRef"
                 :data="homeMenus"
                 show-checkbox
                 node-key="id"
-                :props="{ label: 'name', children: 'children' }"
                 :default-checked-keys="selectedMenus.home"
-                :render-content="renderContent"
+                :props="{
+                  children: 'children',
+                  label: (menu: Menu) => {
+                    return menu.needPermission ? menu.name : `${menu.name} [全员]`;
+                  },
+                }"
+                style="width: 100%; max-height: 600px; overflow-y: auto"
               />
             </el-tab-pane>
           </el-tabs>
@@ -173,7 +167,7 @@
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" @click="handleSubmit" :loading="submitLoading">
-          确定
+          {{ isEdit ? '更新' : '创建' }}
         </el-button>
       </template>
     </el-dialog>
@@ -181,59 +175,42 @@
     <!-- 成员管理对话框 -->
     <el-dialog
       v-model="memberDialogVisible"
-      title="成员管理"
+      :title="`${currentRole?.name} 成员管理`"
       width="800px"
       :close-on-click-modal="false"
-      @close="handleMemberDialogClose"
     >
       <div class="member-search">
-        <div class="search-left">
-          <el-input
-            v-model="memberSearchKeyword"
-            placeholder="搜索用户名或邮箱"
-            clearable
-            style="width: 300px"
-            @clear="fetchRoleMembers"
-            @keyup.enter="fetchRoleMembers"
-          >
-            <template #prefix>
-              <el-icon><Search /></el-icon>
-            </template>
-          </el-input>
-          <el-button 
-            v-if="selectedMembers.length > 0" 
-            type="danger" 
-            size="small" 
-            @click="handleBatchRemoveMembers"
-            style="margin-left: 10px"
-          >
-            批量移除 ({{ selectedMembers.length }})
-          </el-button>
-        </div>
-        <el-button type="primary" size="small" @click="handleAddMember">
-          <el-icon><Plus /></el-icon>
-          添加成员
+        <el-input
+          v-model="memberSearchKeyword"
+          placeholder="搜索用户名或邮箱"
+          clearable
+          style="width: 300px"
+          @clear="fetchRoleMembers"
+          @keyup.enter="fetchRoleMembers"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+        <el-button type="primary" @click="handleAddMember">
+          <el-icon><Plus /></el-icon> 添加成员
         </el-button>
       </div>
-      <el-table 
-        :data="memberList" 
-        border 
-        v-loading="memberLoading" 
-        style="margin-top: 10px"
+      <el-table
+        :data="memberList"
+        border
+        v-loading="memberLoading"
+        style="margin-top: 10px; max-height: 500px; overflow-y: auto"
         @selection-change="handleMemberSelectionChange"
       >
         <el-table-column type="selection" width="55" />
         <el-table-column type="index" label="序号" width="80" />
-        <el-table-column prop="username" label="用户名" min-width="120" />
-        <el-table-column prop="email" label="邮箱" min-width="180" />
-        <el-table-column prop="created_at" label="添加时间" width="180">
-          <template #default="{ row }">
-            {{ formatDate(row.created_at) }}
-          </template>
-        </el-table-column>
+        <el-table-column prop="username" label="用户名" min-width="150" />
+        <el-table-column prop="email" label="邮箱" min-width="200" />
+        <el-table-column prop="created_at" label="加入时间" width="180" />
         <el-table-column label="操作" width="100">
           <template #default="{ row }">
-            <el-button type="danger" link @click="handleRemoveMember(row)">
+            <el-button type="danger" size="small" @click="handleRemoveMember(row)">
               移除
             </el-button>
           </template>
@@ -244,12 +221,20 @@
           v-model:current-page="memberPage"
           v-model:page-size="memberPageSize"
           :page-sizes="[10, 20, 50, 100]"
-          :total="memberTotal"
           layout="total, sizes, prev, pager, next, jumper"
-          @size-change="fetchRoleMembers"
-          @current-change="fetchRoleMembers"
+          :total="memberTotal"
+          @size-change="handleMemberSizeChange"
+          @current-change="handleMemberCurrentChange"
         />
       </div>
+      <div v-if="selectedMembers.length > 0" style="margin-top: 10px; text-align: right">
+        <el-button type="danger" @click="handleBatchRemoveMembers">
+          批量移除 ({{ selectedMembers.length }})
+        </el-button>
+      </div>
+      <template #footer>
+        <el-button @click="memberDialogVisible = false">关闭</el-button>
+      </template>
     </el-dialog>
 
     <!-- 添加成员对话框 -->
@@ -277,23 +262,24 @@
         :data="availableUsers"
         border
         v-loading="addMemberLoading"
-        style="margin-top: 10px; max-height: 400px; overflow-y: auto"
+        style="margin-top: 10px; max-height: 500px; overflow-y: auto"
         @selection-change="handleUserSelectionChange"
       >
         <el-table-column type="selection" width="55" />
         <el-table-column type="index" label="序号" width="80" />
-        <el-table-column prop="username" label="用户名" min-width="120" />
-        <el-table-column prop="email" label="邮箱" min-width="180" />
+        <el-table-column prop="username" label="用户名" min-width="150" />
+        <el-table-column prop="email" label="邮箱" min-width="200" />
+        <el-table-column prop="created_at" label="创建时间" width="180" />
       </el-table>
       <div class="pagination-container">
         <el-pagination
           v-model:current-page="addMemberPage"
           v-model:page-size="addMemberPageSize"
           :page-sizes="[10, 20, 50, 100]"
-          :total="addMemberTotal"
           layout="total, sizes, prev, pager, next, jumper"
-          @size-change="fetchAvailableUsers"
-          @current-change="fetchAvailableUsers"
+          :total="addMemberTotal"
+          @size-change="handleAddMemberSizeChange"
+          @current-change="handleAddMemberCurrentChange"
         />
       </div>
       <template #footer>
@@ -418,10 +404,15 @@ interface Menu {
   parentId: string | null;
   sortOrder: number;
   type: string;
-  isShow: boolean;
+  isShow?: boolean;
   clientType: string;
   needPermission: boolean;
   children?: Menu[];
+  createdAt?: string;
+  updatedAt?: string;
+  status?: string;
+  position?: string;
+  code?: string;
 }
 
 interface User {
@@ -497,123 +488,7 @@ const form = reactive({
   parent_ids: [] as string[],
 });
 
-// 所有角色列表（用于父角色选择器）
-const allRoles = ref<Role[]>([]);
-
-// 系统内置角色代码
-const SYSTEM_ROLES = ['super_admin', 'admin', 'developer', 'user'];
-
-// 判断是否为系统内置角色
-const isSystemRole = computed(() => {
-  return SYSTEM_ROLES.includes(form.code);
-});
-
-const rules = {
-  name: [{ required: true, message: '请输入角色名称', trigger: 'blur' }],
-  code: [{ required: true, message: '请输入角色代码', trigger: 'blur' }],
-};
-
-const formatDate = (date: string | undefined) => {
-  if (!date) return '';
-  return new Date(date).toLocaleString('zh-CN');
-};
-
-const getRoleNameById = (roleId: string) => {
-  const role = allRoles.value.find(r => r.id === roleId);
-  return role ? role.name : '未知角色';
-};
-
-// 获取权限类型标签
-const getPermissionTypeLabel = (row: any) => {
-  if (row.inheritanceType === 'public') {
-    return '公开权限';
-  }
-  return row.inheritanceType === 'direct' ? '直接权限' : '继承权限';
-};
-
-// 获取权限类型颜色
-const getPermissionTypeColor = (row: any) => {
-  if (row.inheritanceType === 'public') {
-    return 'success';
-  }
-  return row.inheritanceType === 'direct' ? 'primary' : 'info';
-};
-
-// 过滤后的权限列表
-const filteredPermissions = computed(() => {
-  let permissions = [...rolePermissions.value];
-  
-  // 按角色code排序
-  permissions.sort((a, b) => {
-    if (a.code && b.code) {
-      return a.code.localeCompare(b.code);
-    }
-    return 0;
-  });
-  
-  // 按搜索关键词过滤
-  if (permissionSearchKeyword.value) {
-    const keyword = permissionSearchKeyword.value.toLowerCase();
-    permissions = permissions.filter(permission => 
-      permission.name.toLowerCase().includes(keyword) || 
-      (permission.code && permission.code.toLowerCase().includes(keyword))
-    );
-  }
-  
-  // 按客户端过滤
-  if (permissionClientFilter.value) {
-    permissions = permissions.filter(permission => 
-      permission.clientType === permissionClientFilter.value
-    );
-  }
-  
-  // 按权限类型过滤
-  if (permissionTypeFilter.value) {
-    permissions = permissions.filter(permission => {
-      if (permissionTypeFilter.value === 'public') {
-        return !permission.needPermission;
-      }
-      return permission.inheritanceType === permissionTypeFilter.value;
-    });
-  }
-  
-  return permissions;
-});
-
-// 处理权限详情
-const handlePermission = async (row: Role) => {
-  currentRole.value = row;
-  permissionDialogVisible.value = true;
-  permissionLoading.value = true;
-  permissionSearchKeyword.value = '';
-  permissionClientFilter.value = '';
-  permissionTypeFilter.value = '';
-  
-  try {
-    const res = await request.get<any, Role>(`/roles/${row.id}`);
-    if (res.allMenus) {
-      rolePermissions.value = res.allMenus;
-    } else {
-      rolePermissions.value = [];
-    }
-  } catch (error) {
-    console.error('获取角色权限失败:', error);
-    rolePermissions.value = [];
-  } finally {
-    permissionLoading.value = false;
-  }
-};
-
-// 过滤权限
-const filterPermissions = () => {
-  // 计算属性会自动更新
-};
-
-const handleSearch = () => {
-  page.value = 1;
-  fetchRoles();
-};
-
+// 获取角色列表
 const fetchRoles = async () => {
   loading.value = true;
   console.log('开始执行fetchRoles函数');
@@ -630,92 +505,49 @@ const fetchRoles = async () => {
       return;
     }
     
-    console.log('准备发送请求到: /roles');
-    console.log('请求参数:', {
-      page: page.value,
-      pageSize: pageSize.value,
-      includeDisabled: 'true',
-    });
-    
     const params: any = {
       page: page.value,
       pageSize: pageSize.value,
-      includeDisabled: 'true',
     };
+    
     if (searchKeyword.value) {
       params.keyword = searchKeyword.value;
     }
+    
     if (filterStatus.value) {
       params.status = filterStatus.value;
     }
     
-    res = await request.get<any, { list: Role[]; total: number }>('/roles', {
-      params
-    });
-    console.log('请求成功，响应:', res);
-    // 正确处理分页响应（request拦截器已经处理了后端返回的数据结构）
-    roleList.value = Array.isArray(res.list) ? res.list : [];
-    total.value = res.total || 0;
-    console.log('角色列表:', roleList.value);
-    console.log('角色数量:', roleList.value.length);
+    console.log('发送请求获取角色列表，参数:', params);
+    res = await request.get<any, { list: Role[]; total: number }>('/roles', { params });
+    console.log('获取角色列表成功，响应:', res);
     
-    // 获取所有角色（用于父角色选择器）
-    const allRolesRes = await request.get<any, { list: Role[] }>('/roles', {
-      params: {
-        page: 1,
-        pageSize: 100,
-        includeDisabled: 'true',
-      }
-    });
-    allRoles.value = allRolesRes.list || [];
-    console.log('所有角色列表:', allRoles.value);
+    roleList.value = res.list || [];
+    total.value = res.total || 0;
   } catch (error: any) {
     console.error('获取角色列表失败:', error);
-    console.error('错误信息:', error.message);
     roleList.value = [];
     total.value = 0;
-    allRoles.value = [];
   } finally {
     loading.value = false;
-    console.log('fetchRoles函数执行完毕');
   }
 };
 
+// 获取菜单列表
 const fetchMenus = async () => {
   try {
-    const [adminRes, homeRes] = await Promise.all([
-      request.get<any, Menu[]>('/menus?clientType=admin'),
-      request.get<any, Menu[]>('/menus?clientType=home'),
-    ]);
-    // 打印接收到的菜单数据
-    console.log('Admin menus:', adminRes);
-    console.log('Home menus:', homeRes);
-    // 过滤掉禁用的菜单
-    adminMenus.value = adminRes.filter(menu => menu.status !== 'disabled');
-    homeMenus.value = homeRes.filter(menu => menu.status !== 'disabled');
+    const res = await request.get<any, Menu[]>('/menus');
+    // 按客户端类型分组
+    adminMenus.value = res.filter(menu => menu.clientType === 'admin');
+    homeMenus.value = res.filter(menu => menu.clientType === 'home');
   } catch (error) {
     console.error('获取菜单列表失败:', error);
   }
 };
 
-const renderContent = (h: any, { data }: any) => {
-  console.log('Menu data:', data);
-  return h('span', {
-    class: 'menu-item'
-  }, [
-    h('span', {
-      class: {
-        'menu-name': true,
-        'no-permission': !data.needPermission
-      }
-    }, data.name),
-    !data.needPermission ? h('span', {
-      class: 'menu-tag'
-    }, '[全员]') : null
-  ]);
-};
-
-const resetForm = () => {
+// 处理新增角色
+const handleAdd = () => {
+  isEdit.value = false;
   form.id = '';
   form.name = '';
   form.code = '';
@@ -723,59 +555,46 @@ const resetForm = () => {
   form.parent_ids = [];
   selectedMenus.admin = [];
   selectedMenus.home = [];
-};
-
-const handleAdd = () => {
-  isEdit.value = false;
-  resetForm();
-  
-  // 不自动添加不需要权限的菜单，让用户自由选择
-  selectedMenus.admin = [];
-  selectedMenus.home = [];
-  
   dialogVisible.value = true;
 };
 
+// 处理编辑角色
 const handleEdit = async (row: Role) => {
   isEdit.value = true;
   form.id = row.id;
   form.name = row.name;
   form.code = row.code;
-  form.description = row.description;
+  form.description = row.description || '';
   form.parent_ids = row.parent_ids || [];
-
-  try {
-    console.log('编辑角色，ID:', row.id);
-    if (!row.id) {
-      console.error('角色ID不存在');
-      return;
-    }
-    console.log('准备发送请求到:', `/roles/${row.id}`);
-    const res = await request.get<any, Role>(`/roles/${row.id}`);
-    console.log('获取角色详情成功，响应:', res);
-    // 设置父角色
-    form.parent_ids = res.parent_ids || [];
-    
-    // 清空之前的选择
-    selectedMenus.admin = [];
-    selectedMenus.home = [];
-    
-    // 设置直接菜单权限（根据映射关系判断）
-    if (res.directMenus) {
-      selectedMenus.admin = res.directMenus
-        .filter((m: Menu) => m.clientType === 'admin')
-        .map((m: Menu) => m.id);
-      selectedMenus.home = res.directMenus
-        .filter((m: Menu) => m.clientType === 'home')
-        .map((m: Menu) => m.id);
-    }
-  } catch (error) {
-    console.error('获取角色详情失败:', error);
+  
+  if (!row.id) {
+    console.error('角色ID不存在');
+    return;
   }
-
+  console.log('准备发送请求到:', `/roles/${row.id}`);
+  const res = await request.get<any, Role>(`/roles/${row.id}`);
+  console.log('获取角色详情成功，响应:', res);
+  // 设置父角色
+  form.parent_ids = res.parent_ids || [];
+  
+  // 清空之前的选择
+  selectedMenus.admin = [];
+  selectedMenus.home = [];
+  
+  // 设置直接菜单权限（根据映射关系判断）
+  if (res.directMenus) {
+    selectedMenus.admin = res.directMenus
+      .filter((m: Menu) => m.clientType === 'admin')
+      .map((m: Menu) => m.id);
+    selectedMenus.home = res.directMenus
+      .filter((m: Menu) => m.clientType === 'home')
+      .map((m: Menu) => m.id);
+  }
+  
   dialogVisible.value = true;
 };
 
+// 处理删除角色
 const handleDelete = async (row: Role) => {
   try {
     await ElMessageBox.confirm('确定要删除该角色吗？', '提示', {
@@ -792,6 +611,7 @@ const handleDelete = async (row: Role) => {
   }
 };
 
+// 处理提交
 const handleSubmit = async () => {
   if (!formRef.value) return;
 
@@ -833,32 +653,17 @@ const handleSubmit = async () => {
   });
 };
 
-const handleSizeChange = (val: number) => {
-  pageSize.value = val;
-  page.value = 1;
-  fetchRoles();
-};
-
-const handleCurrentChange = (val: number) => {
-  page.value = val;
-  fetchRoles();
-};
-
-// 角色成员管理相关方法
+// 处理成员管理
 const handleMember = (row: Role) => {
   currentRole.value = row;
   memberDialogVisible.value = true;
   memberPage.value = 1;
   memberSearchKeyword.value = '';
+  selectedMembers.value = [];
   fetchRoleMembers();
 };
 
-const handleMemberDialogClose = () => {
-  currentRole.value = null;
-  memberList.value = [];
-  selectedMembers.value = [];
-};
-
+// 获取角色成员
 const fetchRoleMembers = async () => {
   if (!currentRole.value) return;
   memberLoading.value = true;
@@ -867,31 +672,31 @@ const fetchRoleMembers = async () => {
       page: memberPage.value,
       pageSize: memberPageSize.value,
     };
+    
     if (memberSearchKeyword.value) {
       params.keyword = memberSearchKeyword.value;
     }
-    console.log('请求角色成员:', `/roles/${currentRole.value.id}/members`, params);
+    
     const res = await request.get<any, { list: User[]; total: number }>(`/roles/${currentRole.value.id}/members`, { params });
-    console.log('角色成员响应:', res);
     memberList.value = res.list || [];
     memberTotal.value = res.total || 0;
-  } catch (error: any) {
+  } catch (error) {
     console.error('获取角色成员失败:', error);
-    console.error('错误详情:', error.message, error.response?.data);
+    memberList.value = [];
+    memberTotal.value = 0;
   } finally {
     memberLoading.value = false;
   }
 };
 
-const handleRemoveMember = async (row: User) => {
+// 移除成员
+const handleRemoveMember = async (member: User) => {
   if (!currentRole.value) return;
   try {
-    await ElMessageBox.confirm('确定要移除该成员吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(`确定要移除成员 ${member.username} 吗？`, '提示', {
       type: 'warning',
     });
-    await request.delete(`/roles/${currentRole.value.id}/members/${row.id}`);
+    await request.delete(`/roles/${currentRole.value.id}/members/${member.id}`);
     ElMessage.success('移除成功');
     fetchRoleMembers();
   } catch (error) {
@@ -936,6 +741,7 @@ const handleBatchRemoveMembers = async () => {
   }
 };
 
+// 处理添加成员
 const handleAddMember = () => {
   addMemberDialogVisible.value = true;
   addMemberPage.value = 1;
@@ -944,6 +750,7 @@ const handleAddMember = () => {
   fetchAvailableUsers();
 };
 
+// 获取可用用户
 const fetchAvailableUsers = async () => {
   if (!currentRole.value) return;
   addMemberLoading.value = true;
@@ -968,10 +775,12 @@ const fetchAvailableUsers = async () => {
   }
 };
 
+// 用户选择变更
 const handleUserSelectionChange = (selection: User[]) => {
   selectedUserIds.value = selection.map(u => u.id);
 };
 
+// 确认添加成员
 const handleConfirmAddMember = async () => {
   if (!currentRole.value || selectedUserIds.value.length === 0) {
     ElMessage.warning('请选择要添加的用户');
@@ -991,6 +800,161 @@ const handleConfirmAddMember = async () => {
     addMemberSubmitLoading.value = false;
   }
 };
+
+// 处理权限详情
+const handlePermission = async (row: Role) => {
+  currentRole.value = row;
+  permissionDialogVisible.value = true;
+  permissionLoading.value = true;
+  permissionSearchKeyword.value = '';
+  permissionClientFilter.value = '';
+  permissionTypeFilter.value = '';
+  
+  try {
+    const res = await request.get<any, Role>(`/roles/${row.id}`);
+    console.log('获取角色权限详情响应:', res);
+    if (res.allMenus) {
+      console.log('allMenus长度:', res.allMenus.length);
+      console.log('allMenus内容:', res.allMenus);
+      rolePermissions.value = res.allMenus;
+    } else {
+      rolePermissions.value = [];
+    }
+  } catch (error) {
+    console.error('获取角色权限失败:', error);
+    rolePermissions.value = [];
+  } finally {
+    permissionLoading.value = false;
+  }
+};
+
+// 过滤后的权限列表
+const filteredPermissions = computed(() => {
+  let permissions = [...rolePermissions.value];
+  
+  console.log('原始权限列表长度:', permissions.length);
+  console.log('原始权限列表内容:', permissions);
+  
+  // 按角色code排序
+  permissions.sort((a, b) => {
+    if (a.code && b.code) {
+      return a.code.localeCompare(b.code);
+    }
+    return 0;
+  });
+  
+  // 按搜索关键词过滤
+  if (permissionSearchKeyword.value) {
+    const keyword = permissionSearchKeyword.value.toLowerCase();
+    permissions = permissions.filter(permission => 
+      permission.name.toLowerCase().includes(keyword) || 
+      (permission.code && permission.code.toLowerCase().includes(keyword))
+    );
+  }
+  
+  // 按客户端过滤
+  if (permissionClientFilter.value) {
+    permissions = permissions.filter(permission => 
+      permission.clientType === permissionClientFilter.value
+    );
+  }
+  
+  // 按权限类型过滤
+  if (permissionTypeFilter.value) {
+    permissions = permissions.filter(permission => {
+      if (permissionTypeFilter.value === 'public') {
+        return !permission.needPermission;
+      }
+      return permission.inheritanceType === permissionTypeFilter.value;
+    });
+  }
+  
+  console.log('过滤后权限列表长度:', permissions.length);
+  console.log('过滤后权限列表内容:', permissions);
+  
+  return permissions;
+});
+
+// 获取权限类型颜色
+const getPermissionTypeColor = (row: any) => {
+  if (!row.needPermission) return 'info';
+  if (row.inheritanceType === 'direct') return 'primary';
+  if (row.inheritanceType === 'inherited') return 'warning';
+  return '';
+};
+
+// 获取权限类型标签
+const getPermissionTypeLabel = (row: any) => {
+  if (!row.needPermission) return '公开权限';
+  if (row.inheritanceType === 'direct') return '直接权限';
+  if (row.inheritanceType === 'inherited') return '继承权限';
+  return '';
+};
+
+// 处理搜索
+const handleSearch = () => {
+  page.value = 1;
+  fetchRoles();
+};
+
+// 处理分页大小变更
+const handleSizeChange = (val: number) => {
+  pageSize.value = val;
+  page.value = 1;
+  fetchRoles();
+};
+
+// 处理当前页变更
+const handleCurrentChange = (val: number) => {
+  page.value = val;
+  fetchRoles();
+};
+
+// 处理成员分页大小变更
+const handleMemberSizeChange = (val: number) => {
+  memberPageSize.value = val;
+  memberPage.value = 1;
+  fetchRoleMembers();
+};
+
+// 处理成员当前页变更
+const handleMemberCurrentChange = (val: number) => {
+  memberPage.value = val;
+  fetchRoleMembers();
+};
+
+// 处理添加成员分页大小变更
+const handleAddMemberSizeChange = (val: number) => {
+  addMemberPageSize.value = val;
+  addMemberPage.value = 1;
+  fetchAvailableUsers();
+};
+
+// 处理添加成员当前页变更
+const handleAddMemberCurrentChange = (val: number) => {
+  addMemberPage.value = val;
+  fetchAvailableUsers();
+};
+
+// 过滤权限
+const filterPermissions = () => {
+  // 计算属性会自动更新
+};
+
+// 格式化日期
+const formatDate = (dateString: string) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+
 
 onMounted(() => {
   fetchRoles();
@@ -1103,16 +1067,8 @@ onMounted(() => {
 
 .permission-search {
   display: flex;
-  justify-content: flex-start;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
   margin-bottom: 10px;
-}
-
-/* 减小表格单元格内边距 */
-:deep(.el-table th>.cell, .el-table td>.cell) {
-  padding: 8px 12px;
 }
 
 .text-gray {

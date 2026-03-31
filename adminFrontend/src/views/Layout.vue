@@ -87,7 +87,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessageBox } from 'element-plus';
 import { ArrowDown, SwitchButton, ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
@@ -142,16 +142,24 @@ const currentTitle = computed(() => {
 const fetchMenus = async () => {
   try {
     if (!userStore.isLoggedIn) {
+      console.log('用户未登录，跳过获取菜单');
       return;
     }
+    console.log('开始获取菜单');
     // 管理端固定使用 'admin' 客户端类型
     const clientType = 'admin';
     // 获取左导航菜单
+    console.log('调用 getUserMenus API，clientType:', clientType, 'position: left');
     const res = await getUserMenus(clientType, 'left');
+    console.log('getUserMenus API 返回数据:', res);
     // 转换为树状结构
-    menuList.value = buildMenuTree(res);
+    const menuTree = buildMenuTree(res);
+    console.log('构建后的菜单树:', menuTree);
+    menuList.value = menuTree;
     // 获取头像下拉菜单
+    console.log('调用 getUserMenus API，clientType:', clientType, 'position: avatar');
     const avatarRes = await getUserMenus(clientType, 'avatar');
+    console.log('getUserMenus API 返回数据 (avatar):', avatarRes);
     avatarMenuList.value = avatarRes;
   } catch (error) {
     console.error('获取菜单列表失败:', error);
@@ -255,6 +263,13 @@ const handleCommand = async (command: string) => {
 
 onMounted(() => {
   fetchMenus();
+});
+
+// 监听登录状态变化，当用户登录后重新获取菜单
+watch(() => userStore.isLoggedIn, (isLoggedIn) => {
+  if (isLoggedIn) {
+    fetchMenus();
+  }
 });
 </script>
 

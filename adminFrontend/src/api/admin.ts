@@ -15,7 +15,7 @@ export const logout = () => {
 };
 
 export const verifyToken = (token: string) => {
-  return axios.post('http://localhost:3000/api/auth/verify', { token });
+  return request.post<any, { token: string; user: any }>('/auth/verify', { token });
 };
 
 export const getUserList = (params: PageParams) => {

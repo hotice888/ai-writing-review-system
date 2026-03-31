@@ -287,8 +287,6 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   cursor: pointer;
-  padding: 0 20px;
-  box-sizing: border-box;
 }
 
 .mobile-logo {

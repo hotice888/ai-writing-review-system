@@ -115,6 +115,16 @@ if (user.username === 'admin') {
    - 被用户使用的角色禁止删除
    - 绑定菜单的角色自动解除绑定后删除
 
+5. **角色菜单分配页面**
+   - 功能：用于查看和分配角色的菜单权限
+   - 数据需求：只获取角色的**直属权限**（直接分配的菜单），不需要包含继承的权限
+   - 用途：管理员可以在这个页面为角色分配新的菜单权限
+
+6. **角色权限详情页面**
+   - 功能：用于查看角色的所有权限，包括直属权限、继承权限和公共权限
+   - 数据需求：需要获取角色的**直属权限**、**继承的权限**以及**公共权限**
+   - 用途：管理员可以在这个页面查看角色的完整权限情况，包括权限的来源（直接分配还是继承）
+
 #### 关键逻辑
 ```javascript
 // 删除角色校验
@@ -261,6 +271,9 @@ const allMenus = Array.from(menuMap.values()).sort((a, b) => (a.sort_order || 0)
    - 直接权限：角色通过 `role_menus` 关联表直接绑定的菜单权限
    - 继承权限：从父角色及其祖先角色继承的菜单权限
    - 递归计算：通过递归遍历父角色链，收集所有继承的权限
+   - 权限去重策略：
+     - 去重模式：使用 `Map` 去重，直接权限优先级高于继承权限
+     - 不去重模式：保留所有权限，包括重复的直接和继承权限
 
 3. **循环依赖检测**
    - 在设置角色的父角色时，检测是否会形成循环依赖
@@ -276,28 +289,80 @@ const allMenus = Array.from(menuMap.values()).sort((a, b) => (a.sort_order || 0)
 
 ```javascript
 // 角色继承权限计算逻辑
-const getRolePermissions = async (roleId) => {
-  // 获取角色直接权限
-  const directPermissions = await pool.query(
+const getRolePermissions = async (roleId, visited = new Set(), isInherited = false, deduplicate = true) => {
+  // 避免循环依赖
+  if (visited.has(roleId)) {
+    return [];
+  }
+  visited.add(roleId);
+  
+  // 获取角色信息
+  const roleResult = await pool.query(
+    'SELECT name, parent_ids FROM roles WHERE id = $1',
+    [roleId]
+  );
+  
+  if (roleResult.rows.length === 0) {
+    return [];
+  }
+  
+  const roleName = roleResult.rows[0].name;
+  // 确保 parent_ids 是数组
+  const parentIds = Array.isArray(roleResult.rows[0].parent_ids) ? roleResult.rows[0].parent_ids : [];
+  
+  // 获取直接权限
+  const directMenusResult = await pool.query(
     `SELECT m.* FROM menus m
      INNER JOIN role_menus rm ON m.id = rm.menu_id
      WHERE rm.role_id = $1`,
     [roleId]
   );
-
-  // 获取角色信息，包括父角色ID
-  const roleResult = await pool.query('SELECT parent_ids FROM roles WHERE id = $1', [roleId]);
-  const parentIds = roleResult.rows[0]?.parent_ids || [];
-
-  // 递归获取父角色权限
+  
+  // 标记直接权限
+  const directPermissions = directMenusResult.rows.map(menu => ({
+    id: menu.id,
+    name: menu.name,
+    code: menu.code,
+    path: menu.path,
+    component: menu.component,
+    icon: menu.icon,
+    parentId: menu.parent_id,
+    sortOrder: menu.sort_order,
+    status: menu.status,
+    clientType: menu.client_type,
+    needPermission: menu.need_permission,
+    source: roleName,
+    inheritanceType: isInherited ? 'inherited' : 'direct',
+    createdAt: menu.created_at,
+    updatedAt: menu.updated_at
+  }));
+  
+  // 递归获取父角色的权限
   let inheritedPermissions = [];
   for (const parentId of parentIds) {
-    const parentPermissions = await getRolePermissions(parentId);
+    const parentPermissions = await getRolePermissions(parentId, new Set(visited), true, deduplicate);
     inheritedPermissions = [...inheritedPermissions, ...parentPermissions];
   }
-
-  // 合并直接权限和继承权限
-  return [...directPermissions.rows, ...inheritedPermissions];
+  
+  if (!deduplicate) {
+    // 不去重，直接返回所有权限
+    return [...directPermissions, ...inheritedPermissions];
+  } else {
+    // 去重，保留直接权限
+    const menuMap = new Map();
+    
+    // 先添加继承权限
+    inheritedPermissions.forEach(permission => {
+      menuMap.set(permission.id, permission);
+    });
+    
+    // 再添加直接权限，覆盖继承权限
+    directPermissions.forEach(permission => {
+      menuMap.set(permission.id, permission);
+    });
+    
+    return Array.from(menuMap.values());
+  }
 };
 
 // 循环依赖检测
@@ -353,12 +418,19 @@ const detectCycleDependency = async (roleId, parentIds, visited = new Set()) => 
 - POST /api/roles - 创建角色
 - PUT /api/roles/:id - 更新角色
 - DELETE /api/roles/:id - 删除角色
+- GET /api/roles/:id - 获取角色详情（仅包含直属菜单权限）
+- GET /api/roles/:id/permissions - 获取角色的完整权限信息（包含直属、继承和公共权限）
+- PUT /api/roles/:id/menus - 更新角色的直属菜单权限
 
 ### 6.3 菜单接口
 - GET /api/menus - 获取菜单列表
 - POST /api/menus - 创建菜单
 - PUT /api/menus/:id - 更新菜单
 - DELETE /api/menus/:id - 删除菜单
+- GET /api/menus/tree - 获取菜单树结构
+
+### 6.4 用户菜单接口
+- GET /api/users/menus - 获取当前用户的菜单（用于左导航，包含全量菜单树和用户拥有的菜单ID列表）
 
 ## 7. 错误处理
 

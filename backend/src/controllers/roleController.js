@@ -130,7 +130,7 @@ const getRoles = async (req, res) => {
 };
 
 // 递归获取角色及其父角色的权限
-const getRolePermissions = async (roleId, visited = new Set(), isInherited = false) => {
+const getRolePermissions = async (roleId, visited = new Set(), isInherited = false, deduplicate = true) => {
   // 避免循环依赖
   if (visited.has(roleId)) {
     return [];
@@ -172,6 +172,7 @@ const getRolePermissions = async (roleId, visited = new Set(), isInherited = fal
     status: menu.status,
     clientType: menu.client_type,
     needPermission: menu.need_permission,
+    position: menu.position,
     source: roleName,
     inheritanceType: isInherited ? 'inherited' : 'direct',
     createdAt: menu.created_at,
@@ -181,11 +182,29 @@ const getRolePermissions = async (roleId, visited = new Set(), isInherited = fal
   // 递归获取父角色的权限
   let inheritedPermissions = [];
   for (const parentId of parentIds) {
-    const parentPermissions = await getRolePermissions(parentId, new Set(visited), true);
+    const parentPermissions = await getRolePermissions(parentId, new Set(visited), true, deduplicate);
     inheritedPermissions = [...inheritedPermissions, ...parentPermissions];
   }
   
-  return [...directPermissions, ...inheritedPermissions];
+  if (!deduplicate) {
+    // 不去重，直接返回所有权限
+    return [...directPermissions, ...inheritedPermissions];
+  } else {
+    // 去重，保留直接权限
+    const menuMap = new Map();
+    
+    // 先添加继承权限
+    inheritedPermissions.forEach(permission => {
+      menuMap.set(permission.id, permission);
+    });
+    
+    // 再添加直接权限，覆盖继承权限
+    directPermissions.forEach(permission => {
+      menuMap.set(permission.id, permission);
+    });
+    
+    return Array.from(menuMap.values());
+  }
 };
 
 // 获取角色详情（包含菜单权限）
@@ -237,7 +256,7 @@ const getRoleById = async (req, res) => {
     }));
     
     // 递归获取所有权限（直接+继承）
-    const allPermissions = await getRolePermissions(id);
+    const allPermissions = await getRolePermissions(id, new Set(), false, false);
     
     // 获取所有不需要权限的菜单
     const noPermissionMenusResult = await pool.query(
@@ -266,38 +285,28 @@ const getRoleById = async (req, res) => {
       updatedAt: menu.updated_at
     }));
     
-    // 转换所有权限格式并去重
-    const menuMap = new Map();
-    
+    // 合并所有菜单，不进行去重，便于检查重复的菜单
     // 先添加不需要权限的菜单
-    noPermissionMenus.forEach(menu => {
-      menuMap.set(menu.id, menu);
-    });
+    const allMenus = [...noPermissionMenus];
     
     // 再添加需要权限的菜单
-    allPermissions.forEach(permission => {
-      if (!menuMap.has(permission.id)) {
-        menuMap.set(permission.id, {
-          id: permission.id,
-          name: permission.name,
-          code: permission.code,
-          path: permission.path,
-          component: permission.component,
-          icon: permission.icon,
-          parentId: permission.parentId,
-          sortOrder: permission.sortOrder,
-          status: permission.status,
-          clientType: permission.clientType,
-          needPermission: permission.need_permission,
-          source: permission.source,
-          inheritanceType: permission.inheritanceType,
-          createdAt: permission.createdAt,
-          updatedAt: permission.updatedAt
-        });
-      }
-    });
-    
-    const allMenus = Array.from(menuMap.values());
+    allMenus.push(...allPermissions.map(permission => ({
+      id: permission.id,
+      name: permission.name,
+      code: permission.code,
+      path: permission.path,
+      component: permission.component,
+      icon: permission.icon,
+      parentId: permission.parentId,
+      sortOrder: permission.sortOrder,
+      status: permission.status,
+      clientType: permission.clientType,
+      needPermission: permission.needPermission,
+      source: permission.source,
+      inheritanceType: permission.inheritanceType,
+      createdAt: permission.createdAt,
+      updatedAt: permission.updatedAt
+    })));
     
     // 构建角色详情数据
     const roleData = {
@@ -616,60 +625,94 @@ const getUserMenus = async (req, res) => {
     const { clientType, position } = req.query;
 
     // 1. 获取无需权限的菜单（need_permission = false）
-  let noPermissionQuery = `
-    SELECT DISTINCT m.* FROM menus m
-    WHERE m.status != 'disabled'
-    AND m.need_permission = false
-    AND (
-      m.status = 'enabled'
-      OR (m.status = 'not_implemented')
-      OR (m.status = 'in_progress' AND $1)
-    )
-  `;
+    let noPermissionQuery = `
+      SELECT DISTINCT m.* FROM menus m
+      WHERE m.status != 'disabled'
+      AND m.need_permission = false
+      AND (
+        m.status = 'enabled'
+        OR (m.status = 'not_implemented')
+        OR (m.status = 'in_progress' AND $1)
+      )
+    `;
 
-  // 2. 获取需要权限的菜单（基于角色权限）
-  let permissionQuery = `
-    SELECT DISTINCT m.* FROM menus m
-    INNER JOIN role_menus rm ON m.id = rm.menu_id
-    INNER JOIN roles r ON rm.role_id = r.id
-    WHERE m.status != 'disabled'
-    AND m.need_permission = true
-    AND r.code = ANY($2::text[])
-    AND (
-      m.status = 'enabled'
-      OR (m.status = 'not_implemented')
-      OR (m.status = 'in_progress' AND $1)
-    )
-  `;
+    // 构建参数数组
+    const isDeveloper = roles.includes('developer');
+    const params = [isDeveloper];
 
-  // 构建参数数组
-  const isDeveloper = roles.includes('developer');
-  const params = [isDeveloper];
-  const permissionParams = [isDeveloper, roles];
+    // 添加客户端类型过滤
+    if (clientType) {
+      noPermissionQuery += ` AND m.client_type = $2`;
+      params.push(clientType);
+    }
 
-  // 添加客户端类型过滤
-  if (clientType) {
-    noPermissionQuery += ` AND m.client_type = $2`;
-    permissionQuery += ` AND m.client_type = $3`;
-    params.push(clientType);
-    permissionParams.push(clientType);
-  }
+    // 添加菜单位置过滤
+    if (position) {
+      noPermissionQuery += ` AND m.position = $${params.length + 1}`;
+      params.push(position);
+    }
 
-  // 添加菜单位置过滤
-  if (position) {
-    noPermissionQuery += ` AND m.position = $${params.length + 1}`;
-    permissionQuery += ` AND m.position = $${permissionParams.length + 1}`;
-    params.push(position);
-    permissionParams.push(position);
-  }
+    console.log('无需权限查询参数:', params);
 
-  console.log('无需权限查询参数:', params);
-  console.log('权限查询参数:', permissionParams);
+    // 执行查询获取无需权限的菜单
+    const noPermissionResult = await pool.query(noPermissionQuery, params);
 
-  // 执行查询
-  const noPermissionResult = await pool.query(noPermissionQuery, params);
-  const permissionResult = await pool.query(permissionQuery, permissionParams);
-
+    // 2. 获取需要权限的菜单（基于角色权限，包括继承的权限）
+    let allPermissionMenus = [];
+    
+    // 获取所有角色的ID
+    let roleIds = [];
+    if (roles.length > 0) {
+      // 构建参数占位符
+      const placeholders = roles.map((_, index) => '$' + (index + 1)).join(', ');
+      // 构建查询语句
+      const query = 'SELECT id FROM roles WHERE code IN (' + placeholders + ')';
+      // 执行查询
+      const roleIdsResult = await pool.query(query, roles);
+      roleIds = roleIdsResult.rows.map(row => row.id);
+      console.log('角色ID列表:', roleIds);
+    } else {
+      console.log('角色为空，跳过查询');
+    }
+    
+    // 获取每个角色的权限（包括继承的权限）
+    for (const roleId of roleIds) {
+      console.log('获取角色权限，角色ID:', roleId);
+      const rolePermissions = await getRolePermissions(roleId, new Set(), false, true);
+      console.log('角色权限:', rolePermissions);
+      allPermissionMenus = [...allPermissionMenus, ...rolePermissions];
+    }
+    console.log('所有权限菜单:', allPermissionMenus);
+    console.log('过滤前的权限菜单数量:', allPermissionMenus.length);
+    console.log('客户端类型:', clientType);
+    console.log('菜单位置:', position);
+    console.log('是否为开发者:', isDeveloper);
+    
+    // 过滤需要权限的菜单，根据客户端类型和位置
+    const filteredPermissionMenus = allPermissionMenus.filter(menu => {
+      let match = menu.status !== 'disabled' && menu.needPermission;
+      
+      // 检查菜单状态
+      if (match) {
+        match = menu.status === 'enabled' || 
+                menu.status === 'not_implemented' || 
+                (menu.status === 'in_progress' && isDeveloper);
+      }
+      
+      // 检查客户端类型
+      if (match && clientType) {
+        match = menu.clientType === clientType;
+      }
+      
+      // 检查菜单位置
+      if (match && position) {
+        match = menu.position === position;
+      }
+      
+      return match;
+    });
+    console.log('过滤后的权限菜单数量:', filteredPermissionMenus.length);
+    
     // 合并菜单并去重
     const menuMap = new Map();
     
@@ -679,7 +722,7 @@ const getUserMenus = async (req, res) => {
     });
     
     // 添加需要权限的菜单
-    permissionResult.rows.forEach(menu => {
+    filteredPermissionMenus.forEach(menu => {
       menuMap.set(menu.id, menu);
     });
 
@@ -698,6 +741,12 @@ const getUserMenus = async (req, res) => {
         path: menu.path,
         component: menu.component,
         icon: menu.icon,
+        status: menu.status,
+        type: menu.type,
+        parentId: menu.parent_id,
+        clientType: menu.client_type,
+        needPermission: menu.need_permission,
+        position: menu.position,
         target: menu.target || '_self', // 添加显示方式，默认为_self（主内容区显示）
         children: []
       });
