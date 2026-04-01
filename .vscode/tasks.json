@@ -1,0 +1,13 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "npm",
+			"script": "dev",
+			"path": "adminFrontend",
+			"problemMatcher": [],
+			"label": "npm: dev - adminFrontend",
+			"detail": "node ../kill-ports.js && node ../update-config.js && vite"
+		}
+	]
+}

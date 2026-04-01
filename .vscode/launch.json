@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+  
+    {
+      "name": "Debug Backend",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/src/index.js",
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "envFile": "${workspaceFolder}/backend/.env"
+    },
+    {
+      "name": "Debug Admin Frontend",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5174",
+      "webRoot": "${workspaceFolder}/adminFrontend",
+      "sourceMaps": true
+    },
+    {
+      "name": "Debug Home Frontend",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/homeFrontend",
+      "sourceMaps": true
+    }
+  ]
+}

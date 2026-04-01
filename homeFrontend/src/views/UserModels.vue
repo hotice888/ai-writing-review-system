@@ -200,8 +200,10 @@
               v-model="selectedModelId" 
               :label="scope.row.id" 
               @change="handleRadioChange(scope.row)"
-              style="width: 18px; height: 18px; display: block; margin: 0 auto;"
-            />
+              class="radio-only"
+            >
+              <span style="display: none;"></span>
+            </el-radio>
           </template>
         </el-table-column>
         <el-table-column prop="providerName" label="提供商" width="200" />
@@ -551,7 +553,7 @@ const handleRadioChange = (row) => {
 const handleRowDblClick = (row) => {
   selectedModelId.value = row.id;
   selectedModel.value = row;
-  handleSelectModel();
+  confirmModelSelection();
 };
 
 // 处理模型选择对话框分页大小变化
@@ -714,6 +716,10 @@ onMounted(() => {
 <style scoped>
 .user-models-container {
   padding: 20px;
+}
+
+.radio-only :deep(.el-radio__label) {
+  display: none;
 }
 
 .user-models-card {
