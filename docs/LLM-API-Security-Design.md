@@ -496,7 +496,7 @@ CREATE TABLE IF NOT EXISTS user_models (
 );
 ```
 
-### 5.2 通用请求记录表
+### 5.2 大模型请求日志
 
 ```sql
 -- 通用大模型API请求记录表
