@@ -101,17 +101,18 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessageBox } from 'element-plus';
-import { ArrowDown, Setting, SwitchButton, User, Menu, ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
+import { ArrowDown, Menu, ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 import { useUserStore } from '../stores/user';
 import { getUserMenus } from '../api/auth';
 
 interface Menu {
   id: string;
   name: string;
+  code?: string;
   path: string;
   component: string;
   icon: string;
-  target?: string; // 显示方式：_self（主内容区）或_blank（新页签）
+  target?: string;
   children?: Menu[];
 }
 
