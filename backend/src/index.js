@@ -4,6 +4,8 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const initDatabase = require('./models/init');
 const pool = require('./config/database');
+const MigrationManager = require('./config/migration');
+const Seeder = require('./config/seeder');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -66,10 +68,40 @@ const createAdminUser = async () => {
   }
 };
 
+const runMigrations = async () => {
+  try {
+    const manager = new MigrationManager();
+    await manager.migrate();
+    console.log('Migrations completed successfully');
+  } catch (error) {
+    console.error('Migrations failed:', error);
+    throw error;
+  }
+};
+
+const runSeeds = async () => {
+  try {
+    const seeder = new Seeder();
+    await seeder.seedAll();
+    console.log('Seeds completed successfully');
+  } catch (error) {
+    console.error('Seeds failed:', error);
+    throw error;
+  }
+};
+
 const startServer = async () => {
   try {
     await initDatabase();
     console.log('Database initialized successfully');
+    
+    // 运行数据库迁移
+    await runMigrations();
+    
+    // 运行种子数据
+    await runSeeds();
+    
+    // 确保管理员用户存在
     await createAdminUser();
   } catch (error) {
     console.error('Database initialization failed:', error);
