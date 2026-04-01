@@ -636,8 +636,8 @@
         </el-form-item>
         <el-form-item label="显示方式" prop="target">
           <el-select v-model="form.target" placeholder="请选择显示方式">
-            <el-option label="主内容区显示" value="_self" />
-            <el-option label="新页签显示" value="_blank" />
+            <el-option label="主内容区" value="_self" />
+            <el-option label="新页签" value="_blank" />
           </el-select>
         </el-form-item>
       </el-form>

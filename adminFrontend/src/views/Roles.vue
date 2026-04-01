@@ -59,6 +59,11 @@
             {{ formatDate(row.createdAt) }}
           </template>
         </el-table-column>
+        <el-table-column label="更新时间" width="140" align="center">
+          <template #default="{ row }">
+            {{ formatDate(row.updatedAt) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" fixed="right" width="280" align="center">
           <template #default="{ row }">
             <el-button type="primary" size="small" plain round @click="handleEdit(row)" style="margin-right: 8px">

@@ -95,7 +95,7 @@ const getRoles = async (req, res) => {
     const total = parseInt(countResult.rows[0].count);
     
     // 获取分页数据
-    let query = `SELECT * FROM roles${whereClause} ORDER BY created_at ASC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    let query = `SELECT * FROM roles${whereClause} ORDER BY updated_at DESC, created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     const result = await pool.query(query, [...params, size, offset]);
     
     // 转换角色数据格式（snake_case 转 camelCase）
@@ -173,6 +173,7 @@ const getRolePermissions = async (roleId, visited = new Set(), isInherited = fal
     clientType: menu.client_type,
     needPermission: menu.need_permission,
     position: menu.position,
+    target: menu.target,
     source: roleName,
     inheritanceType: isInherited ? 'inherited' : 'direct',
     createdAt: menu.created_at,
@@ -279,6 +280,7 @@ const getRoleById = async (req, res) => {
       status: menu.status,
       clientType: menu.client_type,
       needPermission: menu.need_permission,
+      target: menu.target,
       source: '公开',
       inheritanceType: 'public',
       createdAt: menu.created_at,

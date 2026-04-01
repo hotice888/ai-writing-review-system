@@ -56,11 +56,31 @@ const getMenus = async (req, res) => {
       
       const result = await pool.query(query, params);
       
+      // 转换字段名
+      const list = result.rows.map(menu => ({
+        id: menu.id,
+        name: menu.name,
+        code: menu.code,
+        path: menu.path,
+        component: menu.component,
+        icon: menu.icon,
+        parentId: menu.parent_id,
+        sortOrder: menu.sort_order,
+        type: menu.type,
+        status: menu.status,
+        clientType: menu.client_type,
+        needPermission: menu.need_permission,
+        position: menu.position || 'left',
+        target: menu.target || '_self',
+        createdAt: menu.created_at,
+        updatedAt: menu.updated_at
+      }));
+      
       res.json({
         code: 200,
         message: '获取成功',
         data: {
-          list: result.rows,
+          list,
           total,
           page: parseInt(page),
           pageSize: parseInt(pageSize),
@@ -124,12 +144,12 @@ const getMenuById = async (req, res) => {
 // 创建菜单
 const createMenu = async (req, res) => {
   try {
-    const { name, code, path, component, icon, parentId, sortOrder, type, status, clientType, needPermission, position } = req.body;
+    const { name, code, path, component, icon, parentId, sortOrder, type, status, clientType, needPermission, position, target } = req.body;
 
     const result = await pool.query(
-      `INSERT INTO menus (name, code, path, component, icon, parent_id, sort_order, type, status, client_type, need_permission, position) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
-      [name, code, path, component, icon, parentId || null, sortOrder || 0, type || 'menu', status || 'enabled', clientType || 'admin', needPermission !== false, position || 'left']
+      `INSERT INTO menus (name, code, path, component, icon, parent_id, sort_order, type, status, client_type, need_permission, position, target) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
+      [name, code, path, component, icon, parentId || null, sortOrder || 0, type || 'menu', status || 'enabled', clientType || 'admin', needPermission !== false, position || 'left', target || '_self']
     );
 
     res.json({
@@ -231,6 +251,11 @@ const updateMenu = async (req, res) => {
     if (body.position !== undefined) {
       updateFields.push(`position = $${paramIndex}`);
       params.push(body.position || 'left');
+      paramIndex++;
+    }
+    if (body.target !== undefined) {
+      updateFields.push(`target = $${paramIndex}`);
+      params.push(body.target || '_self');
       paramIndex++;
     }
 
@@ -448,6 +473,7 @@ const buildMenuTree = (menus, parentId = null) => {
         clientType: menu.client_type,
         needPermission: menu.need_permission,
         position: menu.position || 'left',
+        target: menu.target || '_self',
         createdAt: menu.created_at,
         updatedAt: menu.updated_at
       };

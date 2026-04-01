@@ -97,6 +97,22 @@ const initDatabase = async () => {
       console.error('Error adding position column to menus table:', error);
     }
 
+    // 检查并添加anthropic_base_url字段到model_providers表
+    try {
+      await pool.query(`ALTER TABLE model_providers ADD COLUMN IF NOT EXISTS anthropic_base_url VARCHAR(255)`);
+      console.log('Added anthropic_base_url column to model_providers table');
+    } catch (error) {
+      console.error('Error adding column to model_providers table:', error);
+    }
+
+    // 检查并添加common_links字段到model_providers表
+    try {
+      await pool.query(`ALTER TABLE model_providers ADD COLUMN IF NOT EXISTS common_links TEXT`);
+      console.log('Added common_links column to model_providers table');
+    } catch (error) {
+      console.error('Error adding common_links column to model_providers table:', error);
+    }
+
     // 用户角色关联表
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_roles (
@@ -142,9 +158,24 @@ const initDatabase = async () => {
         code VARCHAR(100) UNIQUE NOT NULL,
         url VARCHAR(255),
         openai_base_url VARCHAR(255),
+        anthropic_base_url VARCHAR(255),
         protocol_base_url VARCHAR(255),
         description TEXT,
+        common_links TEXT,
         status VARCHAR(20) DEFAULT 'enabled',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // 模型提供商模型表
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS model_provider_models (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        provider_id UUID NOT NULL REFERENCES model_providers(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        model_code VARCHAR(100) NOT NULL,
+        memo TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -161,6 +192,8 @@ const initDatabase = async () => {
         model VARCHAR(100) NOT NULL, -- gpt-4, claude-3-sonnet-20240229, etc.
         api_url VARCHAR(255),
         api_key VARCHAR(255),
+        openai_api_url VARCHAR(255),
+        anthropic_api_url VARCHAR(255),
         description TEXT,
         status VARCHAR(20) DEFAULT 'enabled',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -485,9 +518,99 @@ const initDefaultData = async () => {
         ('OpenAI GPT-3.5 Turbo', 'openai_gpt35', 'openai', 'gpt-3.5-turbo', 'OpenAI的GPT-3.5 Turbo模型，适用于一般任务', 'enabled'),
         ('OpenAI GPT-4', 'openai_gpt4', 'openai', 'gpt-4', 'OpenAI的GPT-4模型，适用于复杂任务', 'enabled'),
         ('Anthropic Claude 3 Sonnet', 'anthropic_claude3_sonnet', 'anthropic', 'claude-3-sonnet-20240229', 'Anthropic的Claude 3 Sonnet模型，适用于写作任务', 'enabled'),
-        ('智谱GLM-4', 'glm_glm4', 'glm', 'glm-4', '智谱的GLM-4模型，适用于中文任务', 'enabled')
+        ('智谱GLM-4', 'glm_glm4', 'glm', 'glm-4', '智谱的GLM-4模型，适用于中文任务', 'enabled'),
+        -- 阿里云百炼CodingPlan模型
+        ('千问 qwen3.5-plus', 'aliyun_qwen35_plus', 'aliyun_bailian', 'qwen3.5-plus', '阿里云百炼CodingPlan的千问qwen3.5-plus模型，支持文本生成、深度思考、视觉理解', 'enabled'),
+        ('千问 qwen3-max-2026-01-23', 'aliyun_qwen3_max_20260123', 'aliyun_bailian', 'qwen3-max-2026-01-23', '阿里云百炼CodingPlan的千问qwen3-max-2026-01-23模型，支持文本生成、深度思考', 'enabled'),
+        ('千问 qwen3-coder-next', 'aliyun_qwen3_coder_next', 'aliyun_bailian', 'qwen3-coder-next', '阿里云百炼CodingPlan的千问qwen3-coder-next模型，支持文本生成', 'enabled'),
+        ('千问 qwen3-coder-plus', 'aliyun_qwen3_coder_plus', 'aliyun_bailian', 'qwen3-coder-plus', '阿里云百炼CodingPlan的千问qwen3-coder-plus模型，支持文本生成', 'enabled'),
+        ('智谱 glm-5', 'aliyun_glm5', 'aliyun_bailian', 'glm-5', '阿里云百炼CodingPlan的智谱glm-5模型，支持文本生成、深度思考', 'enabled'),
+        ('智谱 glm-4.7', 'aliyun_glm47', 'aliyun_bailian', 'glm-4.7', '阿里云百炼CodingPlan的智谱glm-4.7模型，支持文本生成、深度思考', 'enabled'),
+        ('Kimi kimi-k2.5', 'aliyun_kimi_k25', 'aliyun_bailian', 'kimi-k2.5', '阿里云百炼CodingPlan的Kimi kimi-k2.5模型，支持文本生成、深度思考、视觉理解', 'enabled'),
+        ('MiniMax MiniMax-M2.5', 'aliyun_minimax_m25', 'aliyun_bailian', 'MiniMax-M2.5', '阿里云百炼CodingPlan的MiniMax MiniMax-M2.5模型，支持文本生成、深度思考', 'enabled')
       `);
       console.log('Default models initialized');
+    }
+
+    // 检查是否已有模型提供商数据
+    const providersResult = await pool.query('SELECT COUNT(*) FROM model_providers');
+    if (parseInt(providersResult.rows[0].count) === 0) {
+      // 初始化默认模型提供商
+      const providersData = [
+        {
+          name: 'OpenAI',
+          code: 'openai',
+          url: 'https://platform.openai.com',
+          openai_base_url: 'https://api.openai.com/v1',
+          anthropic_base_url: '',
+          protocol_base_url: 'https://api.openai.com/v1',
+          description: 'OpenAI模型提供商',
+          status: 'enabled',
+          models: [
+            { brand: 'OpenAI', modelId: 'gpt-3.5-turbo', capability: '通用对话' },
+            { brand: 'OpenAI', modelId: 'gpt-4', capability: '复杂任务' }
+          ]
+        },
+        {
+          name: 'Anthropic',
+          code: 'anthropic',
+          url: 'https://www.anthropic.com',
+          openai_base_url: '',
+          anthropic_base_url: 'https://api.anthropic.com/v1',
+          protocol_base_url: 'https://api.anthropic.com/v1',
+          description: 'Anthropic模型提供商',
+          status: 'enabled',
+          models: [
+            { brand: 'Anthropic', modelId: 'claude-3-sonnet-20240229', capability: '写作任务' }
+          ]
+        },
+        {
+          name: '阿里云百炼CodingPlan',
+          code: 'aliyun_bailian',
+          url: 'https://bailian.console.aliyun.com/cn-beijing/?tab=coding-plan#/efm/coding-plan-index',
+          openai_base_url: 'https://coding.dashscope.aliyuncs.com/v1',
+          anthropic_base_url: 'https://coding.dashscope.aliyuncs.com/apps/anthropic',
+          protocol_base_url: 'https://coding.dashscope.aliyuncs.com/v1',
+          description: '阿里云百炼CodingPlan模型提供商',
+          status: 'enabled',
+          models: [
+            { brand: '千问', modelId: 'qwen3.5-plus', capability: '文本生成、深度思考、视觉理解' },
+            { brand: '千问', modelId: 'qwen3-max-2026-01-23', capability: '文本生成、深度思考' },
+            { brand: '千问', modelId: 'qwen3-coder-next', capability: '文本生成' },
+            { brand: '千问', modelId: 'qwen3-coder-plus', capability: '文本生成' },
+            { brand: '智谱', modelId: 'glm-5', capability: '文本生成、深度思考' },
+            { brand: '智谱', modelId: 'glm-4.7', capability: '文本生成、深度思考' },
+            { brand: 'Kimi', modelId: 'kimi-k2.5', capability: '文本生成、深度思考、视觉理解' },
+            { brand: 'MiniMax', modelId: 'MiniMax-M2.5', capability: '文本生成、深度思考' }
+          ]
+        }
+      ];
+      
+      for (const providerData of providersData) {
+        const { models, ...providerFields } = providerData;
+        
+        // 插入提供商
+        const providerResult = await pool.query(
+          `INSERT INTO model_providers (name, code, url, openai_base_url, anthropic_base_url, protocol_base_url, description, status) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+           RETURNING id`,
+          [providerFields.name, providerFields.code, providerFields.url, providerFields.openai_base_url, 
+           providerFields.anthropic_base_url, providerFields.protocol_base_url, providerFields.description, providerFields.status]
+        );
+        
+        const providerId = providerResult.rows[0].id;
+        
+        // 插入模型数据
+        for (const model of models) {
+          await pool.query(
+            `INSERT INTO model_provider_models (provider_id, name, model_code, memo) 
+             VALUES ($1, $2, $3, $4)`,
+            [providerId, model.brand, model.modelId, model.capability]
+          );
+        }
+      }
+      
+      console.log('Default model providers initialized');
     }
 
   } catch (error) {

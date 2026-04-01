@@ -47,3 +47,8 @@ export const deleteUserModel = (modelId: string) => {
 export const getPlatformModels = () => {
   return request.get<any, any[]>('/user-models/platform/models');
 };
+
+// 获取模型提供商列表
+export const getModelProviders = () => {
+  return request.get<any, any[]>('/model-providers');
+};

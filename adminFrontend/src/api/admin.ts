@@ -1,5 +1,5 @@
 import request from '../utils/request';
-import axios from 'axios';
+
 import type { LoginRequest, User, ApiResponse, PageParams, PageResponse, Review } from '../types';
 
 export const login = (data: LoginRequest) => {
@@ -216,9 +216,12 @@ export const createModelProvider = (data: {
   code: string;
   url: string;
   openai_base_url: string;
+  anthropic_base_url: string;
   protocol_base_url: string;
   description: string;
   status: string;
+  common_links?: string;
+  models?: any[];
 }) => {
   return request.post<any, ApiResponse>('/model-providers', data);
 };
@@ -228,9 +231,12 @@ export const updateModelProvider = (providerId: string, data: {
   code: string;
   url: string;
   openai_base_url: string;
+  anthropic_base_url: string;
   protocol_base_url: string;
   description: string;
   status: string;
+  common_links?: string;
+  models?: any[];
 }) => {
   return request.put<any, ApiResponse>(`/model-providers/${providerId}`, data);
 };

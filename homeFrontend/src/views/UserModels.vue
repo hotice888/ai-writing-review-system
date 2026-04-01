@@ -4,48 +4,64 @@
       <template #header>
         <div class="card-header">
           <span>我的模型</span>
-          <el-button type="primary" @click="handleAddModel" icon="Plus">添加模型</el-button>
         </div>
       </template>
       
-      <el-table :data="userModelList" style="width: 100%" border>
-        <el-table-column prop="name" label="模型名称" width="180" />
-        <el-table-column prop="code" label="模型编码" width="180" />
-        <el-table-column prop="provider" label="提供商" width="120" />
-        <el-table-column prop="model" label="模型标识" width="200" />
-        <el-table-column prop="api_url" label="API URL" show-overflow-tooltip />
-        <el-table-column prop="api_key" label="API Key" width="200">
-          <template #default="scope">
-            <el-button size="small" type="primary" @click="showApiKey(scope.row.api_key)">查看</el-button>
-          </template>
-        </el-table-column>
-        <el-table-column prop="description" label="描述" show-overflow-tooltip />
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="scope">
-            <el-tag :type="scope.row.status === 'enabled' ? 'success' : 'danger'">
-              {{ scope.row.status === 'enabled' ? '启用' : '禁用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="200">
-          <template #default="scope">
-            {{ formatDateTime(scope.row.created_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="updated_at" label="更新时间" width="200">
-          <template #default="scope">
-            {{ formatDateTime(scope.row.updated_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
-          <template #default="scope">
-            <div style="display: flex; gap: 8px; align-items: center;">
+      <!-- 模型列表 -->
+      <div class="model-list-section">
+        <div class="list-header">
+          <span style="font-weight: 600;">模型列表</span>
+          <div class="search-box">
+            <span>查询条件：</span>
+            <el-input v-model="searchKeyword" placeholder="请输入模型名称或标识" style="width: 200px; margin-left: 10px;" />
+            <el-button type="primary" plain @click="loadUserModels" style="margin-left: 10px;">搜索</el-button>
+            <el-button type="primary" @click="handleAddModel" style="margin-left: 10px;" icon="Plus">添加模型</el-button>
+          </div>
+        </div>
+        
+        <el-table :data="filteredModelList" style="width: 100%" border>
+          <el-table-column prop="name" label="模型名称" width="150" />
+          <el-table-column prop="model" label="模型标识" width="200" />
+          <el-table-column prop="api_url" label="API URL" show-overflow-tooltip />
+          <el-table-column prop="api_key" label="API Key" width="120">
+            <template #default="scope">
+              <el-button size="small" type="primary" @click="showApiKey(scope.row.api_key)">查看</el-button>
+            </template>
+          </el-table-column>
+          <el-table-column prop="description" label="描述" show-overflow-tooltip width="150" />
+          <el-table-column prop="status" label="状态" width="100">
+            <template #default="scope">
+              <el-tag :type="scope.row.status === 'enabled' ? 'success' : 'danger'">
+                {{ scope.row.status === 'enabled' ? '启用' : '禁用' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="250" fixed="right">
+            <template #default="scope">
               <el-button size="small" @click="handleEdit(scope.row)" icon="Edit">编辑</el-button>
-              <el-button size="small" type="danger" @click="handleDelete(scope.row.id)" icon="Delete">删除</el-button>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
+              <el-button size="small" @click="toggleStatus(scope.row)" :type="scope.row.status === 'enabled' ? 'warning' : 'success'" style="margin-left: 5px;">
+                {{ scope.row.status === 'enabled' ? '禁用' : '启用' }}
+              </el-button>
+              <el-button size="small" type="danger" @click="handleDelete(scope.row.id)" style="margin-left: 5px;">
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        
+        <!-- 分页 -->
+        <div class="pagination" v-if="total > 0">
+          <el-pagination
+            background
+            layout="prev, pager, next, jumper"
+            :total="total"
+            :page-size="pageSize"
+            :current-page="currentPage"
+            @current-change="handlePageChange"
+            style="margin-top: 20px; text-align: right;"
+          />
+        </div>
+      </div>
     </el-card>
 
     <!-- 添加/编辑模型对话框 -->
@@ -56,69 +72,87 @@
       :close-on-click-modal="false"
     >
       <el-form :model="formData" label-width="100px">
-        <el-form-item label="模型名称" required>
-          <el-input v-model="formData.name" placeholder="请输入模型名称" />
+        <el-form-item label="可选模型">
+          <el-button type="primary" plain @click="openModelSelector" style="width: 100%;">
+            从模型提供商选择
+          </el-button>
         </el-form-item>
-        <el-form-item label="模型编码" required>
-          <el-input v-model="formData.code" placeholder="请输入模型编码" />
+        
+        <el-form-item label="模型名称">
+          <template #label>
+            <span style="display: flex; align-items: center;">
+              模型名称
+              <span style="color: #f56c6c; margin-left: 4px;">*</span>
+            </span>
+          </template>
+          <el-input v-model="formData.name" placeholder="模型提供商名称-模型标识" style="width: 600px;" />
         </el-form-item>
-        <el-form-item label="提供商" required>
-          <el-select v-model="formData.provider" placeholder="请选择提供商">
-            <el-option label="OpenAI" value="openai" />
-            <el-option label="Anthropic" value="anthropic" />
-            <el-option label="GLM" value="glm" />
-            <el-option label="自定义" value="custom" />
-          </el-select>
+        
+        <el-form-item label="模型标识">
+          <template #label>
+            <span style="display: flex; align-items: center;">
+              模型标识
+              <span style="color: #f56c6c; margin-left: 4px;">*</span>
+            </span>
+          </template>
+          <el-input v-model="formData.model" placeholder="请输入模型标识" style="width: 600px;" />
         </el-form-item>
-        <el-form-item label="模型标识" required>
-          <el-input v-model="formData.model" placeholder="请输入模型标识" />
+        
+        <el-divider content-position="left">BaseURL</el-divider>
+        
+        <el-form-item label="Anthropic">
+          <template #label>
+            <span style="display: flex; align-items: center;">
+              Anthropic
+              <span style="color: #f56c6c; margin-left: 4px;">*</span>
+            </span>
+          </template>
+          <el-input v-model="formData.anthropic_api_url" placeholder="请输入Anthropic BaseURL" style="width: 600px;" />
         </el-form-item>
-        <el-form-item label="API URL">
-          <el-input v-model="formData.api_url" placeholder="请输入API URL" />
+        
+        <el-form-item label="OpenAI">
+          <template #label>
+            <span style="display: flex; align-items: center;">
+              OpenAI
+            </span>
+          </template>
+          <el-input v-model="formData.openai_api_url" placeholder="请输入OpenAI BaseURL" style="width: 600px;" />
         </el-form-item>
+        
         <el-form-item label="API Key">
-          <el-input v-model="formData.api_key" type="password" placeholder="请输入API Key" />
+          <template #label>
+            <span style="display: flex; align-items: center;">
+              API Key
+              <span style="color: #f56c6c; margin-left: 4px;">*</span>
+            </span>
+          </template>
+          <div style="display: flex; gap: 10px; width: 600px;">
+            <el-input 
+              v-model="apiKeyDisplay" 
+              placeholder="请输入API Key" 
+              style="flex: 1;"
+              @input="handleApiKeyInput"
+            />
+            <el-button @click="toggleApiKeyVisibility">
+              {{ apiKeyVisible ? '隐藏' : '查看' }}
+            </el-button>
+          </div>
         </el-form-item>
-        <el-form-item label="描述">
-          <el-input v-model="formData.description" type="textarea" placeholder="请输入描述" :rows="3" />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="formData.status" placeholder="请选择状态">
-            <el-option label="启用" value="enabled" />
-            <el-option label="禁用" value="disabled" />
-          </el-select>
+        
+        <!-- 操作按钮 -->
+        <div class="action-buttons">
+          <el-button type="primary" @click="testModel">测试</el-button>
+        </div>
+        
+        <!-- 测试结果 -->
+        <el-form-item label="测试结果">
+          <el-input v-model="testResult" placeholder="测试结果将显示在这里" type="textarea" :rows="3" readonly style="width: 600px;" />
         </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
           <el-button type="primary" @click="submitForm">确定</el-button>
-        </span>
-      </template>
-    </el-dialog>
-
-    <!-- 从平台模型选择对话框 -->
-    <el-dialog
-      v-model="platformModelDialogVisible"
-      title="选择平台模型"
-      width="700px"
-      :close-on-click-modal="false"
-    >
-      <el-table :data="platformModelList" style="width: 100%" border>
-        <el-table-column prop="name" label="模型名称" width="180" />
-        <el-table-column prop="code" label="模型编码" width="180" />
-        <el-table-column prop="provider" label="提供商" width="120" />
-        <el-table-column prop="model" label="模型标识" width="200" />
-        <el-table-column prop="description" label="描述" show-overflow-tooltip />
-        <el-table-column label="操作" width="120" fixed="right">
-          <template #default="scope">
-            <el-button size="small" type="primary" @click="selectPlatformModel(scope.row)">选择</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="platformModelDialogVisible = false">取消</el-button>
         </span>
       </template>
     </el-dialog>
@@ -141,22 +175,91 @@
         </span>
       </template>
     </el-dialog>
+    
+    <!-- 模型选择对话框 -->
+    <el-dialog
+      v-model="modelSelectorVisible"
+      title="选择模型"
+      width="900px"
+      :close-on-click-modal="false"
+    >
+      <div class="model-selector-search" style="margin-bottom: 15px;">
+        <el-input v-model="modelSearchKeyword" placeholder="按提供商或模型标识模糊搜索" style="width: 400px;" />
+        <el-button type="primary" plain @click="filterAvailableModels" style="margin-left: 10px;">搜索</el-button>
+      </div>
+      <el-table 
+        :data="paginatedModels" 
+        style="width: 100%" 
+        border 
+        @row-click="handleRowClick"
+        @row-dblclick="handleRowDblClick"
+      >
+        <el-table-column width="55" align="center">
+          <template #default="scope">
+            <el-radio 
+              v-model="selectedModelId" 
+              :label="scope.row.id" 
+              @change="handleRadioChange(scope.row)"
+              style="width: 18px; height: 18px; display: block; margin: 0 auto;"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column prop="providerName" label="提供商" width="200" />
+        <el-table-column prop="modelId" label="模型标识" min-width="250" />
+        <el-table-column prop="capability" label="模型说明" min-width="300" />
+      </el-table>
+      <div style="margin-top: 15px; display: flex; justify-content: flex-end;">
+        <el-pagination
+          v-model:current-page="modelCurrentPage"
+          v-model:page-size="modelPageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="filteredAvailableModels.length"
+          @size-change="handleModelSizeChange"
+          @current-change="handleModelCurrentChange"
+        />
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="modelSelectorVisible = false">取消</el-button>
+          <el-button type="primary" @click="confirmModelSelection" :disabled="selectedModel === null">确定</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue';
+import { ref, onMounted, reactive, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { getUserModels, createUserModel, updateUserModel, deleteUserModel, getPlatformModels } from '../api/userModels';
+import { getUserModels, createUserModel, updateUserModel, deleteUserModel, getModelProviders } from '../api/userModels';
 
 // 响应式数据
 const userModelList = ref([]);
-const platformModelList = ref([]);
 const dialogVisible = ref(false);
 const platformModelDialogVisible = ref(false);
 const apiKeyDialogVisible = ref(false);
+const modelSelectorVisible = ref(false);
 const dialogTitle = ref('添加模型');
 const currentModelId = ref('');
+const searchKeyword = ref('');
+const testResult = ref('');
+const modelProviders = ref([]);
+const modelSearchKeyword = ref('');
+const selectedModel = ref(null);
+const selectedModelId = ref('');
+const allAvailableModels = ref([]);
+const apiKeyVisible = ref(false);
+const apiKeyDisplay = ref('');
+
+// 分页数据
+const currentPage = ref(1);
+const pageSize = ref(10);
+const total = ref(0);
+
+// 模型选择对话框分页
+const modelCurrentPage = ref(1);
+const modelPageSize = ref(10);
 
 // 表单数据
 const formData = reactive({
@@ -167,13 +270,84 @@ const formData = reactive({
   api_url: '',
   api_key: '',
   description: '',
-  status: 'enabled'
+  status: 'enabled',
+  openai_api_url: '',
+  openai_api_key: '',
+  anthropic_api_url: ''
 });
 
 // API Key查看表单
 const apiKeyForm = reactive({
   key: ''
 });
+
+// 过滤后的可选模型列表
+const filteredAvailableModels = computed(() => {
+  if (!modelSearchKeyword.value) {
+    return allAvailableModels.value;
+  }
+  const keyword = modelSearchKeyword.value.toLowerCase();
+  return allAvailableModels.value.filter(model => 
+    model.providerName.toLowerCase().includes(keyword) || 
+    model.modelId.toLowerCase().includes(keyword)
+  );
+});
+
+// 分页后的模型列表
+const paginatedModels = computed(() => {
+  const start = (modelCurrentPage.value - 1) * modelPageSize.value;
+  const end = start + modelPageSize.value;
+  return filteredAvailableModels.value.slice(start, end);
+});
+
+// 过滤后的模型列表
+const filteredModelList = computed(() => {
+  let list = userModelList.value;
+  
+  if (searchKeyword.value) {
+    const keyword = searchKeyword.value.toLowerCase();
+    list = list.filter(model => 
+      model.name.toLowerCase().includes(keyword) || 
+      model.model.toLowerCase().includes(keyword)
+    );
+  }
+  
+  // 分页
+  total.value = list.length;
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  return list.slice(start, end);
+});
+
+// 加载模型提供商
+const loadModelProviders = async () => {
+  try {
+    const response = await getModelProviders();
+    const providers = response.data || response;
+    modelProviders.value = providers;
+    // 构建可选模型列表
+    allAvailableModels.value = [];
+    providers.forEach(provider => {
+      if (provider.models && Array.isArray(provider.models)) {
+        provider.models.forEach((model, index) => {
+          allAvailableModels.value.push({
+            id: `${provider.id}-${index}`, // 生成唯一ID
+            providerId: provider.id,
+            providerName: provider.name,
+            brand: model.brand || model.name,
+            modelId: model.modelId || model.model_id,
+            capability: model.capability || model.memo,
+            openaiBaseUrl: provider.openai_base_url || '',
+            anthropicBaseUrl: provider.anthropic_base_url || '',
+            protocolBaseUrl: provider.protocol_base_url || ''
+          });
+        });
+      }
+    });
+  } catch (error) {
+    console.error('加载模型提供商失败:', error);
+  }
+};
 
 // 加载用户模型
 const loadUserModels = async () => {
@@ -189,22 +363,12 @@ const loadUserModels = async () => {
   }
 };
 
-// 加载平台模型
-const loadPlatformModels = async () => {
-  try {
-    const response = await getPlatformModels();
-    platformModelList.value = response;
-  } catch (error) {
-    ElMessage.error('加载平台模型失败');
-    console.error('Error loading platform models:', error);
-  }
-};
-
 // 添加模型
 const handleAddModel = () => {
   console.log('点击添加模型按钮');
   dialogTitle.value = '添加模型';
   currentModelId.value = '';
+  apiKeyVisible.value = false;
   // 重置表单
   Object.assign(formData, {
     name: '',
@@ -214,8 +378,13 @@ const handleAddModel = () => {
     api_url: '',
     api_key: '',
     description: '',
-    status: 'enabled'
+    status: 'enabled',
+    openai_api_url: '',
+    openai_api_key: '',
+    anthropic_api_url: ''
   });
+  apiKeyDisplay.value = '';
+  testResult.value = '';
   console.log('打开添加模型对话框');
   dialogVisible.value = true;
 };
@@ -224,6 +393,7 @@ const handleAddModel = () => {
 const handleEdit = (model) => {
   dialogTitle.value = '编辑模型';
   currentModelId.value = model.id;
+  apiKeyVisible.value = false;
   // 填充表单数据
   Object.assign(formData, {
     name: model.name,
@@ -233,9 +403,42 @@ const handleEdit = (model) => {
     api_url: model.api_url || '',
     api_key: model.api_key || '',
     description: model.description || '',
-    status: model.status
+    status: model.status,
+    openai_api_url: model.api_url || '',
+    openai_api_key: model.api_key || '',
+    anthropic_api_url: model.api_url || ''  // 同时填充anthropic_api_url
   });
+  apiKeyDisplay.value = maskApiKey(model.api_key || '');
+  testResult.value = '';
   dialogVisible.value = true;
+};
+
+// 掩码API Key
+const maskApiKey = (key) => {
+  if (!key) return '';
+  if (key.length <= 8) return key;
+  return key.substring(0, 4) + '*'.repeat(key.length - 8) + key.substring(key.length - 4);
+};
+
+// 处理API Key输入
+const handleApiKeyInput = (value) => {
+  if (apiKeyVisible.value) {
+    formData.openai_api_key = value;
+    apiKeyDisplay.value = value;
+  } else {
+    formData.openai_api_key = value;
+    apiKeyDisplay.value = maskApiKey(value);
+  }
+};
+
+// 切换API Key可见性
+const toggleApiKeyVisibility = () => {
+  apiKeyVisible.value = !apiKeyVisible.value;
+  if (apiKeyVisible.value) {
+    apiKeyDisplay.value = formData.openai_api_key;
+  } else {
+    apiKeyDisplay.value = maskApiKey(formData.openai_api_key);
+  }
 };
 
 // 删除模型
@@ -262,22 +465,49 @@ const submitForm = async () => {
   try {
     console.log('开始提交表单...');
     console.log('Form data:', formData);
-    // 验证表单数据
-    if (!formData.name || !formData.code || !formData.provider || !formData.model) {
-      ElMessage.error('请填写必填字段');
+    
+    // 验证表单数据 - 如果没有选择模型，则所有字段必填
+    if (!formData.name) {
+      ElMessage.error('请填写模型名称');
       return;
     }
+    if (!formData.model) {
+      ElMessage.error('请填写模型标识');
+      return;
+    }
+    if (!formData.anthropic_api_url) {
+      ElMessage.error('请填写Anthropic BaseURL');
+      return;
+    }
+    if (!formData.openai_api_key) {
+      ElMessage.error('请填写API Key');
+      return;
+    }
+    
+    const modelData = {
+      name: formData.name,
+      code: formData.code || formData.name.toLowerCase().replace(/\s+/g, '-'),
+      provider: formData.provider || 'custom',
+      model: formData.model || 'custom',
+      api_url: formData.openai_api_url || formData.anthropic_api_url || formData.api_url || '',
+      api_key: formData.openai_api_key || formData.api_key || '',
+      openai_api_url: formData.openai_api_url || '',
+      anthropic_api_url: formData.anthropic_api_url || '',
+      description: formData.description,
+      status: formData.status
+    };
+    
     if (currentModelId.value) {
       // 更新模型
       console.log('更新模型:', currentModelId.value);
-      await updateUserModel(currentModelId.value, formData);
+      await updateUserModel(currentModelId.value, modelData);
       ElMessage.success('更新成功');
     } else {
       // 创建模型
       console.log('创建模型');
       console.log('Token:', localStorage.getItem('token'));
       console.log('API URL:', import.meta.env.VITE_API_BASE_URL);
-      const result = await createUserModel(formData);
+      const result = await createUserModel(modelData);
       console.log('创建模型成功:', result);
       ElMessage.success('创建成功');
     }
@@ -296,25 +526,169 @@ const showApiKey = (key) => {
   apiKeyDialogVisible.value = true;
 };
 
-// 打开平台模型选择对话框
-const openPlatformModelDialog = () => {
-  loadPlatformModels();
-  platformModelDialogVisible.value = true;
+// 打开模型选择器
+const openModelSelector = () => {
+  modelSearchKeyword.value = '';
+  selectedModel.value = null;
+  selectedModelId.value = '';
+  modelCurrentPage.value = 1;
+  modelPageSize.value = 10;
+  modelSelectorVisible.value = true;
 };
 
-// 选择平台模型
-const selectPlatformModel = (model) => {
-  // 填充表单数据
-  Object.assign(formData, {
-    name: model.name,
-    code: model.code,
-    provider: model.provider,
-    model: model.model,
-    description: model.description || '',
-    status: 'enabled'
-  });
-  platformModelDialogVisible.value = false;
-  dialogVisible.value = true;
+// 处理行点击
+const handleRowClick = (row) => {
+  selectedModelId.value = row.id;
+  selectedModel.value = row;
+};
+
+// 处理单选框变化
+const handleRadioChange = (row) => {
+  selectedModel.value = row;
+};
+
+// 处理行双击 - 确认选择
+const handleRowDblClick = (row) => {
+  selectedModelId.value = row.id;
+  selectedModel.value = row;
+  handleSelectModel();
+};
+
+// 处理模型选择对话框分页大小变化
+const handleModelSizeChange = (size) => {
+  modelPageSize.value = size;
+  modelCurrentPage.value = 1;
+};
+
+// 处理模型选择对话框当前页码变化
+const handleModelCurrentChange = (current) => {
+  modelCurrentPage.value = current;
+};
+
+// 过滤可选模型
+const filterAvailableModels = () => {
+  // computed属性会自动处理
+  modelCurrentPage.value = 1; // 搜索后重置页码
+};
+
+// 确认模型选择
+const confirmModelSelection = () => {
+  if (!selectedModel.value) {
+    ElMessage.warning('请选择一个模型');
+    return;
+  }
+  
+  const model = selectedModel.value;
+  formData.name = model.providerName + '-' + model.modelId;
+  formData.model = model.modelId;
+  
+  // 获取BaseURL，优先使用OpenAI或Anthropic，没有则使用兼容模式
+  if (model.openaiBaseUrl) {
+    formData.openai_api_url = model.openaiBaseUrl;
+  }
+  if (model.anthropicBaseUrl) {
+    formData.anthropic_api_url = model.anthropicBaseUrl;
+  }
+  if (!model.openaiBaseUrl && !model.anthropicBaseUrl && model.protocolBaseUrl) {
+    formData.openai_api_url = model.protocolBaseUrl;
+    formData.anthropic_api_url = model.protocolBaseUrl;
+  }
+  
+  // 更新API Key显示
+  if (apiKeyVisible.value) {
+    apiKeyDisplay.value = formData.openai_api_key;
+  } else {
+    apiKeyDisplay.value = maskApiKey(formData.openai_api_key);
+  }
+  
+  modelSelectorVisible.value = false;
+};
+
+// 测试模型
+const testModel = async () => {
+  try {
+    testResult.value = '测试中...';
+    
+    const baseUrl = formData.openai_api_url || formData.anthropic_api_url;
+    const apiKey = formData.openai_api_key;
+    const model = formData.model;
+    
+    if (!baseUrl) {
+      testResult.value = '测试失败：请填写BaseURL';
+      return;
+    }
+    if (!apiKey) {
+      testResult.value = '测试失败：请填写API Key';
+      return;
+    }
+    if (!model) {
+      testResult.value = '测试失败：请填写模型标识';
+      return;
+    }
+    
+    // 构建测试请求
+    let testUrl = baseUrl.endsWith('/') ? baseUrl + 'chat/completions' : baseUrl + '/chat/completions';
+    
+    // 使用代理避免CORS
+    if (testUrl.includes('coding.dashscope.aliyuncs.com')) {
+      testUrl = testUrl.replace('https://coding.dashscope.aliyuncs.com', '/proxy');
+    }
+    
+    const response = await fetch(testUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          {
+            role: 'user',
+            content: '你是哪个大模型，哪个平台提供的？BaseUrl、ApiKey如何收费？提供常用的使用链接。'
+          }
+        ],
+        max_tokens: 500
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      testResult.value = `测试失败：HTTP ${response.status} - ${errorText}`;
+      return;
+    }
+    
+    const data = await response.json();
+    if (data.choices && data.choices.length > 0) {
+      testResult.value = `模型回答：\n${data.choices[0].message.content}\n\nToken使用详情：\n` +
+        `请求Token: ${data.usage?.prompt_tokens || 0}\n` +
+        `响应Token: ${data.usage?.completion_tokens || 0}\n` +
+        `总Token: ${data.usage?.total_tokens || 0}`;
+    } else {
+      testResult.value = `测试成功！响应数据：\n${JSON.stringify(data, null, 2)}`;
+    }
+  } catch (error) {
+    console.error('测试失败:', error);
+    testResult.value = `测试失败：${error.message || '未知错误'}\n\n错误详情：\n${JSON.stringify(error, null, 2)}`;
+  }
+};
+
+// 切换模型状态
+const toggleStatus = async (model) => {
+  try {
+    const newStatus = model.status === 'enabled' ? 'disabled' : 'enabled';
+    await updateUserModel(model.id, { ...model, status: newStatus });
+    ElMessage.success(`模型已${newStatus === 'enabled' ? '启用' : '禁用'}`);
+    model.status = newStatus;
+  } catch (error) {
+    ElMessage.error('更新状态失败');
+    console.error('Error toggling status:', error);
+  }
+};
+
+// 分页处理
+const handlePageChange = (page) => {
+  currentPage.value = page;
 };
 
 // 格式化时间
@@ -333,6 +707,7 @@ const formatDateTime = (dateString) => {
 // 生命周期钩子
 onMounted(() => {
   loadUserModels();
+  loadModelProviders();
 });
 </script>
 
@@ -349,6 +724,53 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.model-config-section {
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.form-row {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 15px;
+}
+
+.config-row {
+  display: flex;
+  gap: 40px;
+  margin-bottom: 20px;
+}
+
+.config-column {
+  flex: 1;
+}
+
+.action-buttons {
+  margin: 20px 0;
+}
+
+.model-list-section {
+  margin-top: 30px;
+}
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+}
+
+.pagination {
+  margin-top: 20px;
+  text-align: right;
 }
 
 .dialog-footer {

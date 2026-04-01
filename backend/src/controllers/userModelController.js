@@ -56,7 +56,7 @@ const createUserModel = async (req, res) => {
     console.log('Request user:', req.user);
     const user_id = req.user?.id;
     console.log('User ID:', user_id);
-    const { name, code, provider, model, api_url, api_key, description, status } = req.body;
+    const { name, code, provider, model, api_url, api_key, openai_api_url, anthropic_api_url, description, status } = req.body;
     
     if (!user_id) {
       return res.status(401).json({
@@ -77,10 +77,10 @@ const createUserModel = async (req, res) => {
     }
     
     const result = await pool.query(
-      `INSERT INTO user_models (user_id, name, code, provider, model, api_url, api_key, description, status) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+      `INSERT INTO user_models (user_id, name, code, provider, model, api_url, api_key, openai_api_url, anthropic_api_url, description, status) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) 
        RETURNING *`,
-      [user_id, name, code, provider, model, api_url, api_key, description, status || 'enabled']
+      [user_id, name, code, provider, model, api_url, api_key, openai_api_url, anthropic_api_url, description, status || 'enabled']
     );
     
     res.status(201).json({
@@ -103,7 +103,7 @@ const updateUserModel = async (req, res) => {
   try {
     const { id } = req.params;
     const { id: user_id } = req.user;
-    const { name, code, provider, model, api_url, api_key, description, status } = req.body;
+    const { name, code, provider, model, api_url, api_key, openai_api_url, anthropic_api_url, description, status } = req.body;
     
     // 检查用户模型是否存在
     const existingModel = await pool.query('SELECT * FROM user_models WHERE id = $1 AND user_id = $2', [id, user_id]);
@@ -129,10 +129,10 @@ const updateUserModel = async (req, res) => {
     
     const result = await pool.query(
       `UPDATE user_models 
-       SET name = $1, code = $2, provider = $3, model = $4, api_url = $5, api_key = $6, description = $7, status = $8, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $9 AND user_id = $10 
+       SET name = $1, code = $2, provider = $3, model = $4, api_url = $5, api_key = $6, openai_api_url = $7, anthropic_api_url = $8, description = $9, status = $10, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $11 AND user_id = $12 
        RETURNING *`,
-      [name, code, provider, model, api_url, api_key, description, status, id, user_id]
+      [name, code, provider, model, api_url, api_key, openai_api_url, anthropic_api_url, description, status, id, user_id]
     );
     
     res.json({
