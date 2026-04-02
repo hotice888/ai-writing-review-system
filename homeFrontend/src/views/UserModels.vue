@@ -611,63 +611,104 @@ const testModel = async () => {
   try {
     testResult.value = '测试中...';
     
-    const baseUrl = formData.openai_api_url || formData.anthropic_api_url;
-    const apiKey = formData.openai_api_key;
-    const model = formData.model;
-    
-    if (!baseUrl) {
-      testResult.value = '测试失败：请填写BaseURL';
-      return;
-    }
-    if (!apiKey) {
-      testResult.value = '测试失败：请填写API Key';
-      return;
-    }
-    if (!model) {
-      testResult.value = '测试失败：请填写模型标识';
-      return;
-    }
-    
-    // 构建测试请求
-    let testUrl = baseUrl.endsWith('/') ? baseUrl + 'chat/completions' : baseUrl + '/chat/completions';
-    
-    // 使用代理避免CORS
-    if (testUrl.includes('coding.dashscope.aliyuncs.com')) {
-      testUrl = testUrl.replace('https://coding.dashscope.aliyuncs.com', '/proxy');
-    }
-    
-    const response = await fetch(testUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          {
-            role: 'user',
-            content: '你是哪个大模型，哪个平台提供的？BaseUrl、ApiKey如何收费？提供常用的使用链接。'
+    if (currentModelId.value) {
+      const response = await fetch('/api/llm/invoke', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          model_id: currentModelId.value,
+          messages: [
+            {
+              role: 'user',
+              content: '你是哪个大模型，哪个平台提供的？BaseUrl、ApiKey如何收费？提供常用的使用链接。'
+            }
+          ],
+          business_type: 'test',
+          params: {
+            max_tokens: 500
           }
-        ],
-        max_tokens: 500
-      })
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      testResult.value = `测试失败：HTTP ${response.status} - ${errorText}`;
-      return;
-    }
-    
-    const data = await response.json();
-    if (data.choices && data.choices.length > 0) {
-      testResult.value = `模型回答：\n${data.choices[0].message.content}\n\nToken使用详情：\n` +
-        `请求Token: ${data.usage?.prompt_tokens || 0}\n` +
-        `响应Token: ${data.usage?.completion_tokens || 0}\n` +
-        `总Token: ${data.usage?.total_tokens || 0}`;
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.code !== 200) {
+        testResult.value = `测试失败：${result.message}`;
+        return;
+      }
+      
+      const data = result.data;
+      if (data.response && data.response.choices && data.response.choices.length > 0) {
+        testResult.value = `模型回答：\n${data.response.choices[0].message.content}\n\nToken使用详情：\n` +
+          `请求Token: ${data.token_usage?.prompt_tokens || 0}\n` +
+          `响应Token: ${data.token_usage?.completion_tokens || 0}\n` +
+          `总Token: ${data.token_usage?.total_tokens || 0}\n\n` +
+          `请求ID: ${data.request_id}\n` +
+          `耗时: ${data.duration_ms}ms`;
+      } else {
+        testResult.value = `测试成功！响应数据：\n${JSON.stringify(data.response, null, 2)}`;
+      }
     } else {
-      testResult.value = `测试成功！响应数据：\n${JSON.stringify(data, null, 2)}`;
+      const baseUrl = formData.openai_api_url || formData.anthropic_api_url;
+      const apiKey = formData.openai_api_key;
+      const model = formData.model;
+      
+      if (!baseUrl) {
+        testResult.value = '测试失败：请填写BaseURL';
+        return;
+      }
+      if (!apiKey) {
+        testResult.value = '测试失败：请填写API Key';
+        return;
+      }
+      if (!model) {
+        testResult.value = '测试失败：请填写模型标识';
+        return;
+      }
+      
+      let testUrl = baseUrl.endsWith('/') ? baseUrl + 'chat/completions' : baseUrl + '/chat/completions';
+      
+      if (testUrl.includes('coding.dashscope.aliyuncs.com')) {
+        testUrl = testUrl.replace('https://coding.dashscope.aliyuncs.com', '/proxy');
+      }
+      
+      const response = await fetch(testUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            {
+              role: 'user',
+              content: '你是哪个大模型，哪个平台提供的？BaseUrl、ApiKey如何收费？提供常用的使用链接。'
+            }
+          ],
+          max_tokens: 500
+        })
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        testResult.value = `测试失败：HTTP ${response.status} - ${errorText}`;
+        return;
+      }
+      
+      const data = await response.json();
+      if (data.choices && data.choices.length > 0) {
+        testResult.value = `模型回答：\n${data.choices[0].message.content}\n\nToken使用详情：\n` +
+          `请求Token: ${data.usage?.prompt_tokens || 0}\n` +
+          `响应Token: ${data.usage?.completion_tokens || 0}\n` +
+          `总Token: ${data.usage?.total_tokens || 0}\n\n` +
+          `注意：新模型测试，请求记录未保存到数据库`;
+      } else {
+        testResult.value = `测试成功！响应数据：\n${JSON.stringify(data, null, 2)}`;
+      }
     }
   } catch (error) {
     console.error('测试失败:', error);
