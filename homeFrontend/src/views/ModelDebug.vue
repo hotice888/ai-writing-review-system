@@ -338,7 +338,7 @@ onMounted(() => {
 <style scoped>
 .model-debug-container {
   display: flex;
-  height: 100vh;
+  height: 100%;
   background-color: #f5f7fa;
   overflow: hidden;
   margin: 0;
@@ -353,26 +353,30 @@ onMounted(() => {
   background-color: #ffffff;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
 }
 
 .session-header {
-  padding: 0;
+  padding: 10px;
   border-bottom: 1px solid #e4e7ed;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0px;
 }
 
 .session-list-content {
   flex: 1;
   overflow-y: auto;
-  padding: 0;
+  padding: 10px;
   scrollbar-width: thin;
   scrollbar-color: #c1c1c1 #f1f1f1;
 }
 
 .session-item {
-  padding: 15px;
-  margin-bottom: 10px;
+  padding: 2px;
+  margin-bottom: 2px;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
@@ -389,15 +393,16 @@ onMounted(() => {
 }
 
 .session-title {
-  font-weight: 500;
-  margin-bottom: 5px;
+  font-size: 14px;
+  font-weight: 400;
+  margin-bottom: 0px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .session-time {
-  font-size: 12px;
+  font-size: 10px;
   color: #909399;
 }
 
@@ -408,14 +413,18 @@ onMounted(() => {
   flex-direction: column;
   background-color: #ffffff;
   overflow: hidden;
-  max-height: 100vh;
+  height: 100%;
   box-sizing: border-box;
 }
 
 .chat-header {
-  padding: 0;
+  padding: 10px;
   border-bottom: 1px solid #e4e7ed;
   background-color: #fafafa;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 10px 0;
 }
 
 .chat-header h2 {
@@ -428,7 +437,7 @@ onMounted(() => {
 .message-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0;
+  padding: 5px;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -438,7 +447,7 @@ onMounted(() => {
 
 .message-item {
   max-width: 80%;
-  padding: 12px 16px;
+  padding: 6px 8px;
   border-radius: 8px;
   line-height: 1.5;
 }
@@ -458,8 +467,8 @@ onMounted(() => {
 }
 
 .thinking-content {
-  margin-bottom: 10px;
-  padding: 8px;
+  margin-bottom: 2px;
+  padding: 4px;
   background-color: #f0f9ff;
   border-radius: 6px;
   font-size: 14px;
@@ -467,9 +476,13 @@ onMounted(() => {
 
 .thinking-text {
   margin-top: 5px;
-  font-size: 13px;
+  font-size: 12px;
   color: #606266;
   line-height: 1.4;
+}
+.message-text {
+  font-size: 12px;
+  font-weight: 600; 
 }
 
 .status-message {
@@ -493,12 +506,14 @@ onMounted(() => {
 /* 输入区域 */
 .input-area {
   border-top: 1px solid #e4e7ed;
-  padding: 15px;
+  padding: 5px;
   background-color: #fafafa;
   z-index: 10;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
   width: 100%;
   box-sizing: border-box;
+  min-height: 140px;
+  max-height: 160px;
 }
 
 .chat-input-wrapper {
@@ -513,22 +528,22 @@ onMounted(() => {
 .chat-input-container {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   background-color: #ffffff;
-  padding: 12px;
+  padding: 6px;
   border-radius: 12px;
   border: 1px solid #e4e7ed;
   transition: all 0.3s ease;
   flex: 1;
-  min-height: 150px;
+  min-height: 130px;
   width: 80%;
   margin: 0 auto;
   max-width: 800px;
+  
 }
 
 .chat-input-container:focus-within {
-  border-color: #9c27b0;
-  box-shadow: 0 0 0 2px rgba(156, 39, 176, 0.2);
+  border-color: #e4e7ed;
+  
 }
 
 .chat-input-row {
@@ -544,6 +559,7 @@ onMounted(() => {
   gap: 10px;
   flex-wrap: nowrap;
   white-space: nowrap;
+  height: 32px;
 }
 
 .input-buttons .el-button {
@@ -635,6 +651,7 @@ onMounted(() => {
 .model-select-container {
   margin-top: 10px;
   display: flex;
+  vertical-align: top;
   align-items: center;
 }
 

@@ -374,9 +374,11 @@ onBeforeUnmount(() => {
 
 .main-content {
   background-color: #f5f7fa;
-  padding: 20px;
+  padding: 0;
   width: 100%;
   min-height: calc(100vh - 60px);
+  height: calc(100vh - 60px);
+  overflow: hidden;
 }
 
 /* 响应式样式 */
