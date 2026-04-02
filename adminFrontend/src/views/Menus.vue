@@ -929,8 +929,8 @@ const form = reactive({
 const rules = {
   name: [{ required: true, message: '请输入菜单名称', trigger: 'blur' }],
   code: [{ required: true, message: '请输入菜单编码', trigger: 'blur' }],
-  path: [{ required: true, message: '请输入路由路径', trigger: 'blur' }],
-  component: [{ required: true, message: '请输入组件名称', trigger: 'blur' }],
+  path: [{ required: false, message: '请输入路由路径', trigger: 'blur' }],
+  component: [{ required: false, message: '请输入组件名称', trigger: 'blur' }],
 };
 
 const iconComponents: Record<string, any> = {

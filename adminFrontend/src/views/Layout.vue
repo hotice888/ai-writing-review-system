@@ -14,22 +14,22 @@
         :collapse="isCollapse"
       >
         <template v-for="menu in menuList" :key="menu?.id">
-          <template v-if="menu && menu.id && menu.path">
-            <el-sub-menu v-if="menu.children && Array.isArray(menu.children) && menu.children.length > 0" :index="menu.path">
+          <template v-if="menu && menu.id">
+            <el-sub-menu v-if="menu.children && Array.isArray(menu.children) && menu.children.length > 0" :index="menu.path || menu.id">
               <template #title>
                 <el-icon v-if="menu.icon">
                   <component :is="menu.icon" />
                 </el-icon>
                 <span v-if="!isCollapse">{{ menu.name }}</span>
               </template>
-              <el-menu-item v-for="child in menu.children" :key="child?.id" :index="child?.path">
+              <el-menu-item v-for="child in menu.children" :key="child?.id" :index="child?.path || child?.id">
                 <el-icon v-if="child && child.icon">
                   <component :is="child.icon" />
                 </el-icon>
                 <span v-if="!isCollapse && child && child.name">{{ child.name }}</span>
               </el-menu-item>
             </el-sub-menu>
-            <el-menu-item v-else :index="menu.path">
+            <el-menu-item v-else-if="menu.path" :index="menu.path">
               <el-icon v-if="menu.icon">
                 <component :is="menu.icon" />
               </el-icon>
@@ -150,12 +150,10 @@ const fetchMenus = async () => {
     const clientType = 'admin';
     // 获取左导航菜单
     console.log('调用 getUserMenus API，clientType:', clientType, 'position: left');
-    const res = await getUserMenus(clientType, 'left');
-    console.log('getUserMenus API 返回数据:', res);
-    // 转换为树状结构
-    const menuTree = buildMenuTree(res);
-    console.log('构建后的菜单树:', menuTree);
-    menuList.value = menuTree;
+    const menuData = await getUserMenus(clientType, 'left');
+    console.log('getUserMenus API 返回数据:', menuData);
+    // 直接使用后端返回的菜单结构
+    menuList.value = menuData;
     // 获取头像下拉菜单
     console.log('调用 getUserMenus API，clientType:', clientType, 'position: avatar');
     const avatarRes = await getUserMenus(clientType, 'avatar');

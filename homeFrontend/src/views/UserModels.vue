@@ -146,7 +146,7 @@
         
         <!-- 测试结果 -->
         <el-form-item label="测试结果">
-          <el-input v-model="testResult" placeholder="测试结果将显示在这里" type="textarea" :rows="3" readonly style="width: 600px;" />
+          <el-input v-model="testResult" placeholder="测试结果将显示在这里" type="textarea" :rows="3" readonly style="width: 600px; vertical-align: top;" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -234,7 +234,8 @@
 <script setup>
 import { ref, onMounted, reactive, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { getUserModels, createUserModel, updateUserModel, deleteUserModel, getModelProviders } from '../api/userModels';
+import { getUserModels, createUserModel, updateUserModel, deleteUserModel, getModelProviders, testModel as testModelApi, createModelProvider, updateModelProvider, getUserModelById as getUserModelByIdApi } from '../api/userModels';
+import request from '../utils/request';
 
 // 响应式数据
 const userModelList = ref([]);
@@ -327,10 +328,12 @@ const loadModelProviders = async () => {
     const response = await getModelProviders();
     const providers = response.data || response;
     modelProviders.value = providers;
-    // 构建可选模型列表
+    
+    // 构建可选模型列表，只包含状态为enabled的提供商的模型
     allAvailableModels.value = [];
     providers.forEach(provider => {
-      if (provider.models && Array.isArray(provider.models)) {
+      // 只处理状态为enabled的提供商
+      if (provider.status === 'enabled' && provider.models && Array.isArray(provider.models)) {
         provider.models.forEach((model, index) => {
           allAvailableModels.value.push({
             id: `${provider.id}-${index}`, // 生成唯一ID
@@ -529,12 +532,16 @@ const showApiKey = (key) => {
 };
 
 // 打开模型选择器
-const openModelSelector = () => {
+const openModelSelector = async () => {
   modelSearchKeyword.value = '';
   selectedModel.value = null;
   selectedModelId.value = '';
   modelCurrentPage.value = 1;
   modelPageSize.value = 10;
+  
+  // 重新加载模型数据，确保获取最新的模型列表
+  await loadModelProviders();
+  
   modelSelectorVisible.value = true;
 };
 
@@ -612,45 +619,39 @@ const testModel = async () => {
     testResult.value = '测试中...';
     
     if (currentModelId.value) {
-      const response = await fetch('/api/llm/invoke', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          model_id: currentModelId.value,
-          messages: [
-            {
-              role: 'user',
-              content: '你是哪个大模型，哪个平台提供的？BaseUrl、ApiKey如何收费？提供常用的使用链接。'
-            }
-          ],
-          business_type: 'test',
-          params: {
-            max_tokens: 500
+      const result = await testModelApi({
+        model_id: currentModelId.value,
+        messages: [
+          {
+            role: 'user',
+            content: '你好'
           }
-        })
+        ],
+        business_type: 'test',
+        params: {
+          max_tokens: 500
+        }
       });
       
-      const result = await response.json();
-      
-      if (result.code !== 200) {
-        testResult.value = `测试失败：${result.message}`;
-        return;
-      }
-      
-      const data = result.data;
-      if (data.response && data.response.choices && data.response.choices.length > 0) {
-        testResult.value = `模型回答：\n${data.response.choices[0].message.content}\n\nToken使用详情：\n` +
-          `请求Token: ${data.token_usage?.prompt_tokens || 0}\n` +
-          `响应Token: ${data.token_usage?.completion_tokens || 0}\n` +
-          `总Token: ${data.token_usage?.total_tokens || 0}\n\n` +
-          `请求ID: ${data.request_id}\n` +
-          `耗时: ${data.duration_ms}ms`;
+      if (result.response) {
+        const content = result.response.choices?.[0]?.message?.content || result.response.content || result.response.text;
+        if (content) {
+          testResult.value = content;
+        } else {
+          testResult.value = `测试成功！响应数据：\n${JSON.stringify(result.response, null, 2)}`;
+        }
       } else {
-        testResult.value = `测试成功！响应数据：\n${JSON.stringify(data.response, null, 2)}`;
+        testResult.value = `测试成功！响应数据：\n${JSON.stringify(result, null, 2)}`;
       }
+      
+      // 测试成功后，后台异步检查模型提供商和模型标识
+      setTimeout(async () => {
+        try {
+          await checkAndUpdateModelProvider();
+        } catch (error) {
+          console.error('后台检查模型提供商失败:', error);
+        }
+      }, 0);
     } else {
       const baseUrl = formData.openai_api_url || formData.anthropic_api_url;
       const apiKey = formData.openai_api_key;
@@ -686,7 +687,7 @@ const testModel = async () => {
           messages: [
             {
               role: 'user',
-              content: '你是哪个大模型，哪个平台提供的？BaseUrl、ApiKey如何收费？提供常用的使用链接。'
+              content: '你好'
             }
           ],
           max_tokens: 500
@@ -700,19 +701,127 @@ const testModel = async () => {
       }
       
       const data = await response.json();
-      if (data.choices && data.choices.length > 0) {
-        testResult.value = `模型回答：\n${data.choices[0].message.content}\n\nToken使用详情：\n` +
-          `请求Token: ${data.usage?.prompt_tokens || 0}\n` +
-          `响应Token: ${data.usage?.completion_tokens || 0}\n` +
-          `总Token: ${data.usage?.total_tokens || 0}\n\n` +
-          `注意：新模型测试，请求记录未保存到数据库`;
+      const content = data.choices?.[0]?.message?.content || data.content || data.text;
+      if (content) {
+        testResult.value = content;
       } else {
         testResult.value = `测试成功！响应数据：\n${JSON.stringify(data, null, 2)}`;
       }
+      
+      // 测试成功后，后台异步检查模型提供商和模型标识
+      setTimeout(async () => {
+        try {
+          await checkAndUpdateModelProvider();
+        } catch (error) {
+          console.error('后台检查模型提供商失败:', error);
+        }
+      }, 0);
     }
   } catch (error) {
     console.error('测试失败:', error);
-    testResult.value = `测试失败：${error.message || '未知错误'}\n\n错误详情：\n${JSON.stringify(error, null, 2)}`;
+    const errorInfo = error.response?.data || error;
+    testResult.value = `测试失败：${error.message || '未知错误'}\n\n${JSON.stringify(errorInfo, null, 2)}`;
+  }
+};
+
+// 根据模型ID获取模型详情
+const getUserModelById = async (modelId) => {
+  try {
+    const model = await getUserModelByIdApi(modelId);
+    return model;
+  } catch (error) {
+    console.error('获取模型详情失败:', error);
+    return null;
+  }
+};
+
+// 检查并更新模型提供商
+const checkAndUpdateModelProvider = async () => {
+  try {
+    let modelData = null;
+    
+    if (currentModelId.value) {
+      // 从已保存的模型获取信息
+      modelData = await getUserModelById(currentModelId.value);
+    } else {
+      // 从表单获取信息
+      modelData = {
+        name: formData.name,
+        model: formData.model,
+        anthropic_api_url: formData.anthropic_api_url,
+        openai_api_url: formData.openai_api_url
+      };
+    }
+    
+    if (!modelData) {
+      return;
+    }
+    
+    const baseUrl = modelData.anthropic_api_url || modelData.openai_api_url;
+    const model = modelData.model;
+    const name = modelData.name;
+    
+    if (!baseUrl || !model) {
+      return;
+    }
+    
+    // 获取所有模型提供商
+    const response = await getModelProviders();
+    const providers = response.data || response;
+    
+    // 查找匹配的提供商（基于baseUrl）
+    let matchedProvider = null;
+    for (const provider of providers) {
+      if (provider.anthropic_base_url === baseUrl || provider.openai_base_url === baseUrl) {
+        matchedProvider = provider;
+        break;
+      }
+    }
+    
+    if (!matchedProvider) {
+      // 创建新的模型提供商
+      const providerData = {
+        name: name,
+        code: `custom_${Date.now()}`,
+        url: baseUrl,
+        openai_base_url: modelData.openai_api_url || '',
+        anthropic_base_url: modelData.anthropic_api_url || '',
+        protocol_base_url: baseUrl,
+        description: `自定义模型提供商 - ${name}`,
+        status: 'pending', // 待审批
+        models: [{
+          brand: name,
+          modelId: model,
+          capability: '自定义模型'
+        }]
+      };
+      
+      const createResult = await createModelProvider(providerData);
+      if (createResult.code === 200) {
+        ElMessage.success('模型提供商创建成功，已添加模型标识');
+      }
+    } else {
+      // 检查模型标识是否存在
+      const modelExists = matchedProvider.models.some(m => m.modelId === model);
+      if (!modelExists) {
+        // 添加模型标识到现有提供商
+        const updateData = {
+          ...matchedProvider,
+          models: [...matchedProvider.models, {
+            brand: matchedProvider.name,
+            modelId: model,
+            capability: '自定义模型'
+          }]
+        };
+        
+        const updateResult = await updateModelProvider(matchedProvider.id, updateData);
+        if (updateResult.code === 200) {
+          ElMessage.success('模型标识添加成功');
+        }
+      }
+    }
+  } catch (error) {
+    console.error('检查模型提供商失败:', error);
   }
 };
 
@@ -755,6 +864,11 @@ onMounted(() => {
 </script>
 
 <style scoped>
+:deep(.el-textarea__inner) {
+  vertical-align: top;
+  resize: vertical;
+}
+
 .user-models-container {
   padding: 20px;
 }

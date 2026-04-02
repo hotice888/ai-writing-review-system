@@ -204,12 +204,20 @@ const handleParentMenuClick = (menu: Menu) => {
 
 const handleCommand = async (menu: Menu) => {
   if (menu.target === '_blank') {
-    if (menu.path === '/admin') {
-      const token = localStorage.getItem('token');
-      const adminUrl = import.meta.env.VITE_ADMIN_BASE_URL || 'http://localhost:5174';
-      window.open(`${adminUrl}?token=${token}`, '_blank');
+    const token = localStorage.getItem('token');
+    
+    // 判断是否是完整URL（包含http://或https://）
+    const isExternalUrl = menu.path.startsWith('http://') || menu.path.startsWith('https://');
+    
+    if (isExternalUrl) {
+      // 外部链接，直接使用菜单配置的URL
+      const url = new URL(menu.path);
+      url.searchParams.append('token', token || '');
+      window.open(url.toString(), '_blank');
     } else {
-      window.open(menu.path, '_blank');
+      // 内部路径，使用环境变量或默认值
+      const adminUrl = import.meta.env.VITE_ADMIN_BASE_URL || 'http://localhost:5174';
+      window.open(`${adminUrl}${menu.path}?token=${token}`, '_blank');
     }
   } else if (menu.path === '/logout' || menu.code === 'user-logout') {
     try {

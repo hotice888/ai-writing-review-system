@@ -48,6 +48,11 @@ const routes = [
         component: () => import('../views/ModelProviders.vue'),
       },
       {
+        path: '/token-logs',
+        name: 'TokenLogs',
+        component: () => import('../views/TokenLogs.vue'),
+      },
+      {
     path: '/user-models',
     name: 'UserModels',
     component: () => import('../views/UserModels.vue'),

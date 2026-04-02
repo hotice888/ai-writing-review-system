@@ -6,6 +6,9 @@ const { authMiddleware } = require('../middleware/auth');
 // 获取所有模型提供商
 router.get('/', authMiddleware, modelProviderController.getAllProviders);
 
+// 获取所有模型提供商的可选模型
+router.get('/providers-models', authMiddleware, modelProviderController.getAllProviderModels);
+
 // 获取单个模型提供商
 router.get('/:id', authMiddleware, modelProviderController.getProviderById);
 

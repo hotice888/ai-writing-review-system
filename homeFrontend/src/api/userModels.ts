@@ -52,3 +52,58 @@ export const getPlatformModels = () => {
 export const getModelProviders = () => {
   return request.get<any, any[]>('/model-providers');
 };
+
+// 获取所有模型提供商的可选模型
+export const getProviderModels = () => {
+  return request.get<any, any[]>('/model-providers/models/all');
+};
+
+// 测试模型
+export const testModel = (data: {
+  model_id?: string;
+  messages: Array<{ role: string; content: string }>;
+  business_type?: string;
+  params?: Record<string, any>;
+}) => {
+  return request.post<any, any>('/llm/invoke', data);
+};
+
+// 创建模型提供商
+export const createModelProvider = (data: {
+  name: string;
+  code: string;
+  url: string;
+  openai_base_url: string;
+  anthropic_base_url: string;
+  protocol_base_url: string;
+  description: string;
+  status: string;
+  models?: Array<{
+    brand: string;
+    modelId: string;
+    capability: string;
+  }>;
+  common_links?: string;
+}) => {
+  return request.post<any, any>('/model-providers', data);
+};
+
+// 更新模型提供商
+export const updateModelProvider = (providerId: string, data: {
+  name: string;
+  code: string;
+  url: string;
+  openai_base_url: string;
+  anthropic_base_url: string;
+  protocol_base_url: string;
+  description: string;
+  status: string;
+  models?: Array<{
+    brand: string;
+    modelId: string;
+    capability: string;
+  }>;
+  common_links?: string;
+}) => {
+  return request.put<any, any>(`/model-providers/${providerId}`, data);
+};

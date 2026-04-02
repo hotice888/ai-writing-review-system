@@ -40,6 +40,14 @@ module.exports = {
       icon: 'Robot',
       sort_order: 2,
       client_type: 'home'
+    },
+    {
+      name: '大模型调试',
+      path: '/model-debug',
+      component: 'ModelDebug',
+      icon: 'ChatDotRound',
+      sort_order: 3,
+      client_type: 'home'
     }
   ]
 };

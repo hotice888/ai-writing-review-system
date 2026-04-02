@@ -345,6 +345,7 @@ const initDefaultData = async () => {
       { name: '用户信息', code: 'profile-left-home', path: '/profile', component: 'Profile', icon: 'User', sort_order: 2, type: 'menu', client_type: 'home', need_permission: false, position: 'left', target: '_self', status: 'enabled' },
       { name: '我的模型', code: 'user-models-left-home', path: '/user-models', component: 'UserModels', icon: 'Cpu', sort_order: 3, type: 'menu', client_type: 'home', need_permission: false, position: 'left', target: '_self', status: 'enabled' },
       { name: '我的智能体', code: 'user-agents-left-home', path: '/user-agents', component: 'UserAgents', icon: 'ChatLineRound', sort_order: 4, type: 'menu', client_type: 'home', need_permission: false, position: 'left', target: '_self', status: 'enabled' },
+      { name: '大模型调试', code: 'model-debug-left-home', path: '/model-debug', component: 'ModelDebug', icon: 'ChatDotRound', sort_order: 5, type: 'menu', client_type: 'home', need_permission: false, position: 'left', target: '_self', status: 'enabled' },
     ];
 
     // 初始化头像下拉菜单

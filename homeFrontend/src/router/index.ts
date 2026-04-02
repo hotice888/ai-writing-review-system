@@ -38,6 +38,11 @@ const routes = [
         name: 'UserAgents',
         component: () => import('../views/UserAgents.vue'),
       },
+      {
+        path: '/model-debug',
+        name: 'ModelDebug',
+        component: () => import('../views/ModelDebug.vue'),
+      },
     ],
   },
 ];

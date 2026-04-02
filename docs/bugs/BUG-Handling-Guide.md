@@ -379,6 +379,99 @@
 - **效果**：提升了系统安全性
 - **处理时间**：1.5天
 
+### 7.4 跨域与跳转案例
+
+**案例1：用户端跳转管理后台跨域错误**
+- **问题**：用户端头像菜单点击"后台管理"跳转时报错
+  ```
+  to load URL http://localhost:5174/?token=xxx from frame with URL 
+  chrome-error://chromewebdata/. Domains, protocols and ports must match.
+  ```
+- **现象**：
+  - 用户端（localhost:5173）跳转到管理后台（localhost:5174）时失败
+  - 浏览器显示跨域错误
+  - 错误提示显示从chrome-error://chromewebdata/跳转
+  
+- **根本原因**：
+  1. 管理后台服务（localhost:5174）未启动
+  2. 用户点击跳转时，浏览器无法访问目标地址，显示错误页面
+  3. 再次点击时，浏览器尝试从错误页面（chrome-error://）跳转，触发跨域安全策略
+  
+- **解决方案**：
+  1. **立即解决**：启动管理后台服务
+     ```bash
+     cd adminFrontend
+     npm run dev
+     ```
+  2. **预防措施**：
+     - 在跳转前检查目标服务是否可用
+     - 提供友好的错误提示，引导用户检查服务状态
+     - 在开发环境启动脚本中同时启动所有服务
+  
+- **代码改进建议**：
+  ```javascript
+  // 改进前（硬编码URL）
+  const handleCommand = async (menu: Menu) => {
+    if (menu.target === '_blank') {
+      if (menu.path === '/admin') {
+        const token = localStorage.getItem('token');
+        const adminUrl = import.meta.env.VITE_ADMIN_BASE_URL || 'http://localhost:5174';
+        window.open(`${adminUrl}?token=${token}`, '_blank');
+      } else {
+        window.open(menu.path, '_blank');
+      }
+    }
+  };
+  
+  // 改进后（从菜单配置读取URL）
+  const handleCommand = async (menu: Menu) => {
+    if (menu.target === '_blank') {
+      const token = localStorage.getItem('token');
+      
+      // 判断是否是完整URL（包含http://或https://）
+      const isExternalUrl = menu.path.startsWith('http://') || menu.path.startsWith('https://');
+      
+      if (isExternalUrl) {
+        // 外部链接，直接使用菜单配置的URL
+        const url = new URL(menu.path);
+        url.searchParams.append('token', token || '');
+        window.open(url.toString(), '_blank');
+      } else {
+        // 内部路径，使用环境变量或默认值
+        const adminUrl = import.meta.env.VITE_ADMIN_BASE_URL || 'http://localhost:5174';
+        window.open(`${adminUrl}${menu.path}?token=${token}`, '_blank');
+      }
+    }
+  };
+  ```
+  
+  **数据库配置**：
+  ```sql
+  -- 更新菜单表中的URL配置
+  UPDATE menus 
+  SET path = 'http://localhost:5174' 
+  WHERE code = 'admin-dashboard-avatar-home';
+  ```
+  
+  **优势**：
+  - 避免前端硬编码URL
+  - URL配置集中在数据库，便于管理
+  - 支持不同环境使用不同URL
+  - 前端代码更通用，适用于所有外部链接
+  
+- **效果**：
+  - 用户点击跳转时能获得明确的错误提示
+  - 避免浏览器显示跨域错误
+  - 提升用户体验
+  
+- **处理时间**：30分钟（定位问题） + 1小时（代码改进）
+- **发生频率**：多次（开发环境频繁重启服务时）
+- **预防措施**：
+  1. 在开发环境使用启动脚本同时启动所有服务
+  2. 添加服务健康检查
+  3. 提供友好的错误提示
+  4. 在文档中说明服务依赖关系
+
 ## 8. 总结
 
 重大BUG的处理需要系统化的方法和流程，包括：

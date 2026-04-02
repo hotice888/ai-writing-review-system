@@ -13,60 +13,19 @@ const getProviderModels = async (providerId) => {
   }));
 };
 
-// 获取所有模型提供商（使用JOIN查询优化性能，避免N+1问题）
+// 获取所有模型提供商
 const getAllProviders = async (req, res) => {
   try {
-    // 使用LEFT JOIN一次性获取所有提供商及其模型
+    // 只获取模型提供商基本信息
     const result = await pool.query(`
-      SELECT 
-        p.*, 
-        m.id as model_id, 
-        m.name as model_name, 
-        m.model_code, 
-        m.memo, 
-        m.created_at as model_created_at
-      FROM model_providers p
-      LEFT JOIN model_provider_models m ON p.id = m.provider_id
-      ORDER BY p.updated_at DESC, m.created_at
+      SELECT * FROM model_providers
+      ORDER BY updated_at DESC
     `);
-    
-    // 按提供商分组
-    const providersMap = new Map();
-    
-    result.rows.forEach(row => {
-      const providerId = row.id;
-      
-      if (!providersMap.has(providerId)) {
-        // 创建新的提供商对象
-        providersMap.set(providerId, {
-          ...row,
-          models: []
-        });
-        // 移除模型相关字段
-        delete providersMap.get(providerId).model_id;
-        delete providersMap.get(providerId).model_name;
-        delete providersMap.get(providerId).model_code;
-        delete providersMap.get(providerId).memo;
-        delete providersMap.get(providerId).model_created_at;
-      }
-      
-      // 如果有模型数据，添加到模型列表
-      if (row.model_id) {
-        providersMap.get(providerId).models.push({
-          brand: row.model_name,
-          modelId: row.model_code,
-          capability: row.memo
-        });
-      }
-    });
-    
-    // 转换为数组
-    const providersWithModels = Array.from(providersMap.values());
     
     res.json({
       code: 200,
       message: '获取成功',
-      data: providersWithModels
+      data: result.rows
     });
   } catch (error) {
     console.error('Error getting model providers:', error);
@@ -93,12 +52,11 @@ const getProviderById = async (req, res) => {
     }
     
     const provider = result.rows[0];
-    const models = await getProviderModels(id);
     
     res.json({
       code: 200,
       message: '获取成功',
-      data: { ...provider, models }
+      data: provider
     });
   } catch (error) {
     console.error('Error getting model provider:', error);
@@ -164,16 +122,10 @@ const createProvider = async (req, res) => {
     
     await client.query('COMMIT');
     
-    // 获取完整的提供商数据（包含模型）
-    const providerWithModels = {
-      ...newProvider,
-      models: await getProviderModels(newProvider.id)
-    };
-    
     res.status(201).json({
       code: 200,
       message: '模型提供商创建成功',
-      data: providerWithModels
+      data: newProvider
     });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -236,16 +188,10 @@ const updateProvider = async (req, res) => {
     
     await client.query('COMMIT');
     
-    // 获取完整的提供商数据（包含模型）
-    const providerWithModels = {
-      ...updatedProvider,
-      models: await getProviderModels(updatedProvider.id)
-    };
-    
     res.json({
       code: 200,
       message: '模型提供商更新成功',
-      data: providerWithModels
+      data: updatedProvider
     });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -293,10 +239,60 @@ const deleteProvider = async (req, res) => {
   }
 };
 
+// 获取所有模型提供商的可选模型
+const getAllProviderModels = async (req, res) => {
+  try {
+    // 获取所有状态为enabled的模型提供商
+    const providersResult = await pool.query(`
+      SELECT * FROM model_providers
+      WHERE status = 'enabled'
+      ORDER BY updated_at DESC
+    `);
+    
+    const providers = providersResult.rows;
+    const models = [];
+    
+    // 为每个提供商获取模型
+    for (const provider of providers) {
+      const modelsResult = await pool.query(
+        'SELECT * FROM model_provider_models WHERE provider_id = $1 ORDER BY created_at',
+        [provider.id]
+      );
+      
+      modelsResult.rows.forEach(model => {
+        models.push({
+          providerId: provider.id,
+          providerName: provider.name,
+          brand: model.name,
+          modelId: model.model_code,
+          capability: model.memo,
+          openaiBaseUrl: provider.openai_base_url || '',
+          anthropicBaseUrl: provider.anthropic_base_url || '',
+          protocolBaseUrl: provider.protocol_base_url || ''
+        });
+      });
+    }
+    
+    res.json({
+      code: 200,
+      message: '获取成功',
+      data: models
+    });
+  } catch (error) {
+    console.error('Error getting provider models:', error);
+    res.status(500).json({
+      code: 500,
+      message: '获取模型提供商可选模型失败',
+      data: null
+    });
+  }
+};
+
 module.exports = {
   getAllProviders,
   getProviderById,
   createProvider,
   updateProvider,
-  deleteProvider
+  deleteProvider,
+  getAllProviderModels
 };
