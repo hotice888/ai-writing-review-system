@@ -53,10 +53,15 @@ const routes = [
         component: () => import('../views/TokenLogs.vue'),
       },
       {
-    path: '/user-models',
-    name: 'UserModels',
-    component: () => import('../views/UserModels.vue'),
-  },
+        path: '/statistics',
+        name: 'Statistics',
+        component: () => import('../views/StatisticsDashboard.vue'),
+      },
+      {
+        path: '/user-models',
+        name: 'UserModels',
+        component: () => import('../views/UserModels.vue'),
+      },
   {
     path: '/agents',
     name: 'Agents',

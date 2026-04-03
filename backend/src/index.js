@@ -33,6 +33,7 @@ app.use('/api/model-providers', require('./routes/modelProviders'));
 app.use('/api/llm', require('./routes/llm'));
 
 app.use('/api/token-logs', require('./routes/tokenLogs'));
+app.use('/api/statistics', require('./routes/statistics'));
 
 app.get('/api/health', (req, res) => {
   res.json({

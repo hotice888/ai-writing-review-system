@@ -1,26 +1,20 @@
 <template>
   <div class="user-models-container">
-    <el-card class="user-models-card">
-      <template #header>
-        <div class="card-header">
-          <span>我的模型</span>
-        </div>
-      </template>
-      
+    <el-card class="user-models-card">      
       <!-- 模型列表 -->
       <div class="model-list-section">
         <div class="list-header">
           <span style="font-weight: 600;">模型列表</span>
           <div class="search-box">
             <span>查询条件：</span>
-            <el-input v-model="searchKeyword" placeholder="请输入模型名称或标识" style="width: 200px; margin-left: 10px;" />
+            <el-input v-model="searchKeyword" placeholder="请输入模型平台或标识" style="width: 200px; margin-left: 10px;" />
             <el-button type="primary" plain @click="loadUserModels" style="margin-left: 10px;">搜索</el-button>
             <el-button type="primary" @click="handleAddModel" style="margin-left: 10px;" icon="Plus">添加模型</el-button>
           </div>
         </div>
         
         <el-table :data="filteredModelList" style="width: 100%" border>
-          <el-table-column prop="name" label="模型名称" width="150" />
+          <el-table-column prop="name" label="模型平台" width="250" />
           <el-table-column prop="model" label="模型标识" width="200" />
           <el-table-column prop="api_url" label="API URL" show-overflow-tooltip />
           <el-table-column prop="api_key" label="API Key" width="120">
@@ -29,14 +23,14 @@
             </template>
           </el-table-column>
           <el-table-column prop="description" label="描述" show-overflow-tooltip width="150" />
-          <el-table-column prop="status" label="状态" width="100">
+          <el-table-column prop="status" label="状态" width="80">
             <template #default="scope">
               <el-tag :type="scope.row.status === 'enabled' ? 'success' : 'danger'">
                 {{ scope.row.status === 'enabled' ? '启用' : '禁用' }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="250" fixed="right">
+          <el-table-column label="操作" width="200" fixed="right">
             <template #default="scope">
               <el-button size="small" @click="handleEdit(scope.row)" icon="Edit">编辑</el-button>
               <el-button size="small" @click="toggleStatus(scope.row)" :type="scope.row.status === 'enabled' ? 'warning' : 'success'" style="margin-left: 5px;">
@@ -86,7 +80,7 @@
               <span style="color: #f56c6c; margin-left: 4px;">*</span>
             </span>
           </template>
-          <el-input v-model="formData.name" placeholder="模型提供商名称-模型标识" style="width: 600px;" />
+          <el-input v-model="formData.name" placeholder="模型平台-模型标识" style="width: 600px;" />
         </el-form-item>
         
         <el-form-item label="模型标识">
@@ -177,15 +171,15 @@
       </template>
     </el-dialog>
     
-    <!-- 模型选择对话框 -->
+    <!-- 模型平台选择对话框 -->
     <el-dialog
       v-model="modelSelectorVisible"
-      title="选择模型"
+      title="选择模型平台"
       width="900px"
       :close-on-click-modal="false"
     >
       <div class="model-selector-search" style="margin-bottom: 15px;">
-        <el-input v-model="modelSearchKeyword" placeholder="按提供商或模型标识模糊搜索" style="width: 400px;" />
+        <el-input v-model="modelSearchKeyword" placeholder="按模型平台或模型标识模糊搜索" style="width: 400px;" />
         <el-button type="primary" plain @click="filterAvailableModels" style="margin-left: 10px;">搜索</el-button>
       </div>
       <el-table 
@@ -207,7 +201,7 @@
             </el-radio>
           </template>
         </el-table-column>
-        <el-table-column prop="providerName" label="提供商" width="200" />
+        <el-table-column prop="providerName" label="模型平台" width="200" />
         <el-table-column prop="modelId" label="模型标识" min-width="250" />
         <el-table-column prop="capability" label="模型说明" min-width="300" />
       </el-table>
@@ -323,24 +317,23 @@ const filteredModelList = computed(() => {
   return list.slice(start, end);
 });
 
-// 加载模型提供商
+// 加载模型平台
 const loadModelProviders = async () => {
   try {
     const response = await getModelProviders();
     const providers = response.data || response;
     modelProviders.value = providers;
     
-    // 构建可选模型列表，只包含状态为enabled的提供商的模型
+    // 构建可选模型列表，只包含状态为enabled的模型平台的模型
     allAvailableModels.value = [];
     providers.forEach(provider => {
-      // 只处理状态为enabled的提供商
+      // 只处理状态为enabled的模型平台
       if (provider.status === 'enabled' && provider.models && Array.isArray(provider.models)) {
         provider.models.forEach((model, index) => {
           allAvailableModels.value.push({
             id: `${provider.id}-${index}`, // 生成唯一ID
             providerId: provider.id,
             providerName: provider.name,
-            brand: model.brand || model.name,
             modelId: model.modelId || model.model_id,
             capability: model.capability || model.memo,
             openaiBaseUrl: provider.openai_base_url || '',
@@ -351,7 +344,7 @@ const loadModelProviders = async () => {
       }
     });
   } catch (error) {
-    console.error('加载模型提供商失败:', error);
+    console.error('加载模型平台失败:', error);
   }
 };
 
@@ -371,7 +364,6 @@ const loadUserModels = async () => {
 
 // 添加模型
 const handleAddModel = () => {
-  console.log('点击添加模型按钮');
   dialogTitle.value = '添加模型';
   currentModelId.value = '';
   apiKeyVisible.value = false;
@@ -391,7 +383,6 @@ const handleAddModel = () => {
   });
   apiKeyDisplay.value = '';
   testResult.value = '';
-  console.log('打开添加模型对话框');
   dialogVisible.value = true;
 };
 
@@ -589,7 +580,7 @@ const confirmModelSelection = () => {
   }
   
   const model = selectedModel.value;
-  formData.name = model.providerName + '-' + model.modelId;
+  formData.name = model.providerName;
   formData.model = model.modelId;
   
   // 获取BaseURL，优先使用OpenAI或Anthropic，没有则使用兼容模式
@@ -619,105 +610,64 @@ const testModel = async () => {
   try {
     testResult.value = '测试中...';
     
-    if (currentModelId.value) {
-      const result = await testModelApi({
-        model_id: currentModelId.value,
-        messages: [
-          {
-            role: 'user',
-            content: '你好'
-          }
-        ],
-        business_type: 'test',
-        params: {
-          max_tokens: 500
+    const baseUrl = formData.openai_api_url || formData.anthropic_api_url;
+    const apiKey = formData.openai_api_key;
+    const model = formData.model;
+    
+    if (!baseUrl) {
+      testResult.value = '测试失败：请填写BaseURL';
+      return;
+    }
+    if (!apiKey) {
+      testResult.value = '测试失败：请填写API Key';
+      return;
+    }
+    if (!model) {
+      testResult.value = '测试失败：请填写模型标识';
+      return;
+    }
+    
+    console.log('测试参数:');
+    console.log('- Base URL:', baseUrl);
+    console.log('- Model:', model);
+    
+    const result = await testModelApi({
+      model_id: currentModelId.value,
+      openai_api_url: formData.openai_api_url,
+      anthropic_api_url: formData.anthropic_api_url,
+      api_key: formData.openai_api_key,
+      model: model,
+      messages: [
+        {
+          role: 'user',
+          content: '你好'
         }
-      });
-      
-      if (result.response) {
-        const content = result.response.choices?.[0]?.message?.content || result.response.content || result.response.text;
-        if (content) {
-          testResult.value = content;
-        } else {
-          testResult.value = `测试成功！响应数据：\n${JSON.stringify(result.response, null, 2)}`;
-        }
-      } else {
-        testResult.value = `测试成功！响应数据：\n${JSON.stringify(result, null, 2)}`;
+      ],
+      business_type: '连通测试',
+      params: {
+        max_tokens: 500
       }
-      
-      // 测试成功后，后台异步检查模型提供商和模型标识
-      setTimeout(async () => {
-        try {
-          await checkAndUpdateModelProvider();
-        } catch (error) {
-          console.error('后台检查模型提供商失败:', error);
-        }
-      }, 0);
-    } else {
-      const baseUrl = formData.openai_api_url || formData.anthropic_api_url;
-      const apiKey = formData.openai_api_key;
-      const model = formData.model;
-      
-      if (!baseUrl) {
-        testResult.value = '测试失败：请填写BaseURL';
-        return;
-      }
-      if (!apiKey) {
-        testResult.value = '测试失败：请填写API Key';
-        return;
-      }
-      if (!model) {
-        testResult.value = '测试失败：请填写模型标识';
-        return;
-      }
-      
-      let testUrl = baseUrl.endsWith('/') ? baseUrl + 'chat/completions' : baseUrl + '/chat/completions';
-      
-      if (testUrl.includes('coding.dashscope.aliyuncs.com')) {
-        testUrl = testUrl.replace('https://coding.dashscope.aliyuncs.com', '/proxy');
-      }
-      
-      const response = await fetch(testUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: model,
-          messages: [
-            {
-              role: 'user',
-              content: '你好'
-            }
-          ],
-          max_tokens: 500
-        })
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        testResult.value = `测试失败：HTTP ${response.status} - ${errorText}`;
-        return;
-      }
-      
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content || data.content || data.text;
+    });
+    
+    if (result.response) {
+      const content = result.response.choices?.[0]?.message?.content || result.response.content || result.response.text;
       if (content) {
         testResult.value = content;
       } else {
-        testResult.value = `测试成功！响应数据：\n${JSON.stringify(data, null, 2)}`;
+        testResult.value = `测试成功！响应数据：\n${JSON.stringify(result.response, null, 2)}`;
       }
-      
-      // 测试成功后，后台异步检查模型提供商和模型标识
-      setTimeout(async () => {
-        try {
-          await checkAndUpdateModelProvider();
-        } catch (error) {
-          console.error('后台检查模型提供商失败:', error);
-        }
-      }, 0);
+    } else {
+      testResult.value = `测试成功！响应数据：\n${JSON.stringify(result, null, 2)}`;
     }
+    
+    // 测试成功后，后台异步检查模型平台和模型标识
+    setTimeout(async () => {
+      try {
+        await checkAndUpdateModelProvider();
+      } catch (error) {
+        console.error('后台检查模型平台失败:', error);
+      }
+    }, 0);
   } catch (error) {
     console.error('测试失败:', error);
     const errorInfo = error.response?.data || error;
@@ -736,7 +686,7 @@ const getUserModelById = async (modelId) => {
   }
 };
 
-// 检查并更新模型提供商
+// 检查并更新模型平台
 const checkAndUpdateModelProvider = async () => {
   try {
     let modelData = null;
@@ -766,11 +716,11 @@ const checkAndUpdateModelProvider = async () => {
       return;
     }
     
-    // 获取所有模型提供商
+    // 获取所有模型平台
     const response = await getModelProviders();
     const providers = response.data || response;
     
-    // 查找匹配的提供商（基于baseUrl）
+    // 查找匹配的平台（基于baseUrl）
     let matchedProvider = null;
     for (const provider of providers) {
       if (provider.anthropic_base_url === baseUrl || provider.openai_base_url === baseUrl) {
@@ -780,16 +730,16 @@ const checkAndUpdateModelProvider = async () => {
     }
     
     if (!matchedProvider) {
-      // 创建新的模型提供商
+      // 创建新的模型平台
       const providerData = {
         name: name,
         code: `custom_${Date.now()}`,
-        url: baseUrl,
+        url: "",
         openai_base_url: modelData.openai_api_url || '',
         anthropic_base_url: modelData.anthropic_api_url || '',
-        protocol_base_url: baseUrl,
-        description: `自定义模型提供商 - ${name}`,
-        status: 'pending', // 待审批
+        protocol_base_url: "",
+        description: `自定义模型平台 - ${name}`,
+        status: 'pending',
         models: [{
           brand: name,
           modelId: model,
@@ -799,13 +749,13 @@ const checkAndUpdateModelProvider = async () => {
       
       const createResult = await createModelProvider(providerData);
       if (createResult.code === 200) {
-        ElMessage.success('模型提供商创建成功，已添加模型标识');
+        ElMessage.success('模型平台创建成功，已添加模型标识');
       }
     } else {
       // 检查模型标识是否存在
       const modelExists = matchedProvider.models.some(m => m.modelId === model);
       if (!modelExists) {
-        // 添加模型标识到现有提供商
+        // 添加模型标识到现有平台
         const updateData = {
           ...matchedProvider,
           models: [...matchedProvider.models, {
@@ -822,7 +772,7 @@ const checkAndUpdateModelProvider = async () => {
       }
     }
   } catch (error) {
-    console.error('检查模型提供商失败:', error);
+    console.error('检查模型平台失败:', error);
   }
 };
 
@@ -871,7 +821,7 @@ onMounted(() => {
 }
 
 .user-models-container {
-  padding: 20px;
+  padding: 10px;
 }
 
 .radio-only :deep(.el-radio__label) {
@@ -879,7 +829,7 @@ onMounted(() => {
 }
 
 .user-models-card {
-  margin-bottom: 20px;
+  margin-bottom: 10px;
 }
 
 .card-header {
@@ -915,14 +865,14 @@ onMounted(() => {
 }
 
 .model-list-section {
-  margin-top: 30px;
+  margin-top: 10px;
 }
 
 .list-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
 }
 
 .search-box {

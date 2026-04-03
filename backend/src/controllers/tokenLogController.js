@@ -86,6 +86,8 @@ const getTokenLogs = async (req, res) => {
         lr.user_id,
         lr.model_id,
         lr.request_id,
+        lr.session_id,
+        lr.response_id,
         lr.business_type,
         lr.request_url,
         lr.request_method,

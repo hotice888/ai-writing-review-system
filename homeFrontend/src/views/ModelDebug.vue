@@ -231,7 +231,7 @@ const sendMessage = async () => {
         role: msg.role,
         content: msg.content
       })),
-      business_type: 'debug',
+      business_type: '模型调试',
       params: {
         max_tokens: 500,
         temperature: 0.7

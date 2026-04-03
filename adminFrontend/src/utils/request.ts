@@ -45,14 +45,25 @@ instance.interceptors.response.use(
   },
   (error) => {
     console.error('响应错误:', error);
+    console.error('错误响应详情:', error.response?.data);
+    
+    let errorMessage = error.message || '网络错误';
+    
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.response?.data) {
+      errorMessage = JSON.stringify(error.response.data);
+    }
+    
     if (error.response?.status === 401) {
       ElMessage.error('登录已过期，请重新登录');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
     } else {
-      ElMessage.error(error.message || '网络错误');
+      ElMessage.error(errorMessage);
     }
+    
     return Promise.reject(error);
   }
 );

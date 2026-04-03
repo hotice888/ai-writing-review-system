@@ -31,6 +31,8 @@
           style="width: 120px"
           @change="handleSearch"
         >
+          <el-option label="连通测试" value="连通测试" />
+          <el-option label="模型调试" value="模型调试" />
           <el-option label="测试" value="test" />
           <el-option label="智能体" value="agent" />
           <el-option label="写作" value="writing" />
@@ -48,54 +50,15 @@
         </el-select>
       </div>
 
-      <!-- 统计信息 - 单行显示 -->
-      <div class="stats-container" v-if="stats">
-        <div class="stats-row" style="display: flex; align-items: center; justify-content: space-between;">
-          <div style="display: flex; align-items: center; gap: 15px;">
-            <el-button 
-              type="danger" 
-              size="small" 
-              :disabled="selectedLogs.length === 0"
-              @click="handleBatchDelete"
-            >
-              批量删除 ({{ selectedLogs.length }})
-            </el-button>
-            <div style="display: flex; gap: 20px;">
-              <div class="stat-item">
-                <span class="stat-label">总请求:</span>
-                <span class="stat-value">{{ stats.overview.total_requests || 0 }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">成功:</span>
-                <span class="stat-value success">{{ stats.overview.successful_requests || 0 }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">失败:</span>
-                <span class="stat-value danger">{{ stats.overview.failed_requests || 0 }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">总Token:</span>
-                <span class="stat-value primary">{{ formatNumber(stats.overview.total_tokens || 0) }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">请求Token:</span>
-                <span class="stat-value">{{ formatNumber(stats.overview.total_prompt_tokens || 0) }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">响应Token:</span>
-                <span class="stat-value">{{ formatNumber(stats.overview.total_completion_tokens || 0) }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">平均耗时:</span>
-                <span class="stat-value">{{ Math.round(stats.overview.avg_duration_ms || 0) }}ms</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">最大耗时:</span>
-                <span class="stat-value">{{ stats.overview.max_duration_ms || 0 }}ms</span>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div style="margin-bottom: 15px;">
+        <el-button 
+          type="danger" 
+          size="small" 
+          :disabled="selectedLogs.length === 0"
+          @click="handleBatchDelete"
+        >
+          批量删除 ({{ selectedLogs.length }})
+        </el-button>
       </div>
       
       <el-table
@@ -127,6 +90,21 @@
             <el-tag :type="getBusinessTypeColor(row.business_type)" size="small">
               {{ getBusinessTypeName(row.business_type) }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="session_id" label="会话ID" width="180">
+          <template #default="{ row }">
+            <div style="font-size: 12px; word-break: break-all">{{ row.session_id || '-' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="request_id" label="请求ID" width="180">
+          <template #default="{ row }">
+            <div style="font-size: 12px; word-break: break-all">{{ row.request_id || '-' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="response_id" label="响应ID" width="180">
+          <template #default="{ row }">
+            <div style="font-size: 12px; word-break: break-all">{{ row.response_id || '-' }}</div>
           </template>
         </el-table-column>
         <el-table-column prop="total_tokens" label="Token使用" width="110">
@@ -187,7 +165,9 @@
     <!-- 详情弹窗 -->
     <el-dialog v-model="detailDialogVisible" title="请求详情" width="80%" :fullscreen="false" custom-class="token-log-detail-dialog">
       <el-descriptions :column="2" border v-if="currentLog" size="small">
-        <el-descriptions-item label="请求ID">{{ currentLog.request_id }}</el-descriptions-item>
+        <el-descriptions-item label="请求ID">{{ currentLog.request_id || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="响应ID">{{ currentLog.response_id || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="会话ID">{{ currentLog.session_id || '-' }}</el-descriptions-item>
         <el-descriptions-item label="用户">{{ currentLog.username }} ({{ currentLog.email }})</el-descriptions-item>
         <el-descriptions-item label="模型名称">{{ currentLog.model_name }}</el-descriptions-item>
         <el-descriptions-item label="模型标识">{{ currentLog.model_identifier }}</el-descriptions-item>
@@ -269,12 +249,11 @@
 import { ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search } from '@element-plus/icons-vue';
-import { getTokenLogs, getTokenLogStats, getTokenLogDetail, deleteTokenLogsBatch } from '../api/tokenLogs';
+import { getTokenLogs, getTokenLogDetail, deleteTokenLogsBatch } from '../api/tokenLogs';
 
 const loading = ref(false);
 const logList = ref([]);
 const selectedLogs = ref([]);
-const stats = ref(null);
 const page = ref(1);
 const pageSize = ref(10);
 const total = ref(0);
@@ -289,7 +268,6 @@ const currentLogDetail = ref(null);
 const handleSearch = async () => {
   page.value = 1;
   await fetchLogs();
-  await fetchStats();
 };
 
 const handleSelectionChange = (selection) => {
@@ -316,7 +294,6 @@ const handleBatchDelete = async () => {
     ElMessage.success('批量删除成功');
     selectedLogs.value = [];
     await fetchLogs();
-    await fetchStats();
   } catch (error) {
     if (error !== 'cancel') {
       console.error('批量删除失败:', error);
@@ -369,30 +346,6 @@ const fetchLogs = async () => {
     ElMessage.error('获取日志失败');
   } finally {
     loading.value = false;
-  }
-};
-
-const fetchStats = async () => {
-  try {
-    const params = {};
-    
-    if (filterBusinessType.value) {
-      params.business_type = filterBusinessType.value;
-    }
-    
-    if (filterStatus.value) {
-      params.status = filterStatus.value;
-    }
-    
-    if (dateRange.value && dateRange.value.length === 2) {
-      params.start_date = dateRange.value[0].toISOString();
-      params.end_date = dateRange.value[1].toISOString();
-    }
-    
-    const result = await getTokenLogStats(params);
-    stats.value = result;
-  } catch (error) {
-    console.error('Error fetching stats:', error);
   }
 };
 
@@ -449,6 +402,8 @@ const handleViewDetail = async (row) => {
 
 const getBusinessTypeName = (type) => {
   const types = {
+    '连通测试': '连通测试',
+    '模型调试': '模型调试',
     test: '测试',
     agent: '智能体',
     writing: '写作',
@@ -459,16 +414,14 @@ const getBusinessTypeName = (type) => {
 
 const getBusinessTypeColor = (type) => {
   const colors = {
+    '连通测试': 'info',
+    '模型调试': 'warning',
     test: 'primary',
     agent: 'success',
     writing: 'warning',
     api_call: 'info'
   };
   return colors[type] || '';
-};
-
-const formatNumber = (num) => {
-  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 };
 
 const formatDateTime = (dateString) => {
@@ -486,7 +439,6 @@ const formatDateTime = (dateString) => {
 
 onMounted(() => {
   fetchLogs();
-  fetchStats();
 });
 </script>
 
@@ -563,48 +515,6 @@ onMounted(() => {
   gap: 10px;
   margin-bottom: 15px;
   flex-wrap: wrap;
-}
-
-.stats-container {
-  margin-bottom: 15px;
-  padding: 10px 15px;
-  background-color: #f5f7fa;
-  border-radius: 4px;
-}
-
-.stats-row {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-.stat-item {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.stat-label {
-  font-size: 13px;
-  color: #666;
-}
-
-.stat-value {
-  font-size: 14px;
-  font-weight: bold;
-  color: #333;
-}
-
-.stat-value.primary {
-  color: #409EFF;
-}
-
-.stat-value.success {
-  color: #67C23A;
-}
-
-.stat-value.danger {
-  color: #F56C6C;
 }
 
 .text-success {

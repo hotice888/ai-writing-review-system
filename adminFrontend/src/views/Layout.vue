@@ -17,10 +17,12 @@
           <template v-if="menu && menu.id">
             <el-sub-menu v-if="menu.children && Array.isArray(menu.children) && menu.children.length > 0" :index="menu.path || menu.id">
               <template #title>
-                <el-icon v-if="menu.icon">
-                  <component :is="menu.icon" />
-                </el-icon>
-                <span v-if="!isCollapse">{{ menu.name }}</span>
+                <div class="sub-menu-title" @click="handleSubMenuTitleClick(menu)">
+                  <el-icon v-if="menu.icon">
+                    <component :is="menu.icon" />
+                  </el-icon>
+                  <span v-if="!isCollapse">{{ menu.name }}</span>
+                </div>
               </template>
               <el-menu-item v-for="child in menu.children" :key="child?.id" :index="child?.path || child?.id">
                 <el-icon v-if="child && child.icon">
@@ -241,6 +243,13 @@ const handleMenuSelect = (path: string) => {
   }
 };
 
+const handleSubMenuTitleClick = (menu: Menu) => {
+  // 如果子菜单有 path 属性，点击标题时也跳转
+  if (menu && menu.path) {
+    handleMenuSelect(menu.path);
+  }
+};
+
 const handleCommand = async (command: string) => {
   switch (command) {
     case 'logout':
@@ -356,6 +365,19 @@ watch(() => userStore.isLoggedIn, (isLoggedIn) => {
 .username {
   font-size: 14px;
   color: #333;
+}
+
+.sub-menu-title {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+.sub-menu-title:hover {
+  color: #409eff;
 }
 
 .el-main {

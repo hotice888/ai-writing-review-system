@@ -11,15 +11,9 @@ const invokeLLM = async (req, res) => {
   
   try {
     const { id: user_id } = req.user;
-    const { model_id, messages, business_type = 'test', params = {} } = req.body;
-    
-    if (!model_id) {
-      return res.status(400).json({
-        code: 400,
-        message: '模型ID不能为空',
-        data: null
-      });
-    }
+    const { model_id, messages, business_type = 'test', params = {}, 
+            api_url, api_key, model, openai_api_url, anthropic_api_url,
+            session_id } = req.body;
     
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({
@@ -29,29 +23,65 @@ const invokeLLM = async (req, res) => {
       });
     }
     
-    const modelResult = await pool.query(
-      'SELECT * FROM user_models WHERE id = $1 AND user_id = $2',
-      [model_id, user_id]
-    );
+    // 如果没有传入session_id，自动生成一个
+    const sessionId = session_id || uuidv4();
+    console.log('使用的Session ID:', sessionId);
+    let provider = 'custom';
+    let apiUrl = api_url || openai_api_url || anthropic_api_url;
+    let apiKey = api_key;
+    let modelName = model;
     
-    if (modelResult.rows.length === 0) {
-      return res.status(404).json({
-        code: 404,
-        message: '模型配置不存在或无权限访问',
-        data: null
-      });
-    }
-    
-    const modelConfig = modelResult.rows[0];
-    
-    const provider = modelConfig.provider.toLowerCase();
-    let apiUrl = modelConfig.api_url;
-    let apiKey = modelConfig.api_key;
-    
-    if (provider === 'openai' && modelConfig.openai_api_url) {
-      apiUrl = modelConfig.openai_api_url;
-    } else if (provider === 'anthropic' && modelConfig.anthropic_api_url) {
-      apiUrl = modelConfig.anthropic_api_url;
+    // 如果有model_id，从数据库获取配置
+    if (model_id) {
+      const modelResult = await pool.query(
+        'SELECT * FROM user_models WHERE id = $1 AND user_id = $2',
+        [model_id, user_id]
+      );
+      
+      if (modelResult.rows.length === 0) {
+        return res.status(404).json({
+          code: 404,
+          message: '模型配置不存在或无权限访问',
+          data: null
+        });
+      }
+      
+      modelConfig = modelResult.rows[0];
+      provider = modelConfig.provider.toLowerCase();
+      modelName = modelConfig.model;
+      
+      if (modelConfig.openai_api_url) {
+        apiUrl = modelConfig.openai_api_url;
+      } else if (modelConfig.anthropic_api_url) {
+        apiUrl = modelConfig.anthropic_api_url;
+      } else {
+        apiUrl = modelConfig.api_url;
+      }
+      
+      apiKey = modelConfig.api_key;
+    } else {
+      // 测试模式：直接使用传入的参数
+      if (!apiUrl) {
+        return res.status(400).json({
+          code: 400,
+          message: 'API URL不能为空',
+          data: null
+        });
+      }
+      if (!apiKey) {
+        return res.status(400).json({
+          code: 400,
+          message: 'API Key不能为空',
+          data: null
+        });
+      }
+      if (!modelName) {
+        return res.status(400).json({
+          code: 400,
+          message: '模型标识不能为空',
+          data: null
+        });
+      }
     }
     
     if (!apiUrl || !apiKey) {
@@ -68,15 +98,27 @@ const invokeLLM = async (req, res) => {
       apiUrl = apiUrl.replace('/v1', '/v1/chat/completions');
     }
     
-    const requestParams = buildRequestParams(provider, modelConfig.model, messages, params);
+    console.log('最终调用参数:');
+    console.log('- Provider:', provider);
+    console.log('- API URL:', apiUrl);
+    console.log('- Model:', modelName);
+    console.log('- Session ID:', session_id || '未提供');
+    
+    const requestParams = buildRequestParams(provider, modelName, messages, params);
     
     const response = await callLLMAPI(provider, apiUrl, apiKey, requestParams);
     const duration = Date.now() - startTime;
     
+    // 从响应中提取 response_id（如果存在）
+    const responseId = response.data?.id || null;
+    
+    // 记录日志，即使是测试模式
     await saveRequestLog({
       user_id,
-      model_id,
+      model_id: model_id || null,
       request_id: requestId,
+      session_id: sessionId,
+      response_id: responseId,
       business_type,
       request_url: apiUrl,
       request_method: 'POST',
@@ -106,6 +148,8 @@ const invokeLLM = async (req, res) => {
       message: '调用成功',
       data: {
         request_id: requestId,
+        session_id: sessionId,
+        response_id: responseId,
         response: response.data,
         token_usage: response.tokenUsage,
         duration_ms: duration
@@ -116,11 +160,16 @@ const invokeLLM = async (req, res) => {
     console.error('Error invoking LLM:', error);
     const duration = Date.now() - startTime;
     
-    if (req.user && req.body.model_id) {
+    // 确保 sessionId 在 catch 块中也可用
+    const sessionId = req.body.session_id || uuidv4();
+    
+    if (req.user) {
       await saveRequestLog({
         user_id: req.user.id,
-        model_id: req.body.model_id,
+        model_id: req.body.model_id || null,
         request_id: requestId,
+        session_id: sessionId,
+        response_id: null,
         business_type: req.body.business_type || 'test',
         request_url: '',
         request_method: 'POST',
@@ -341,12 +390,12 @@ const saveRequestLog = async (logData) => {
   try {
     await pool.query(
       `INSERT INTO llm_request_records 
-       (user_id, model_id, request_id, business_type, request_url, request_method, 
+       (user_id, model_id, request_id, session_id, response_id, business_type, request_url, request_method, 
         request_params, request_messages, response_status_code, response_success, 
         response_data, error_message, token_usage, prompt_tokens, completion_tokens, 
         total_tokens, duration_ms, completed_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW())`,
-      [logData.user_id, logData.model_id, logData.request_id, logData.business_type,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, NOW())`,
+      [logData.user_id, logData.model_id, logData.request_id, logData.session_id, logData.response_id, logData.business_type,
        logData.request_url, logData.request_method, JSON.stringify(logData.request_params),
        JSON.stringify(logData.request_messages), logData.response_status_code,
        logData.response_success, JSON.stringify(logData.response_data), logData.error_message,

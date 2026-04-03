@@ -244,3 +244,22 @@ export const updateModelProvider = (providerId: string, data: {
 export const deleteModelProvider = (providerId: string) => {
   return request.delete<any, ApiResponse>(`/model-providers/${providerId}`);
 };
+
+export const updateModelProviderStatus = (providerId: string, status: string) => {
+  return request.put<any, ApiResponse>(`/model-providers/${providerId}/status`, { status });
+};
+
+// 统计仪表盘
+export const getStatisticsOverview = (params: { start_date: string; end_date: string }) => {
+  return request.get<any, any>('/statistics/overview', { params });
+};
+
+export const getStatisticsRankings = (params: { start_date: string; end_date: string; type?: string }) => {
+  return request.get<any, any>('/statistics/rankings', { params });
+};
+
+export const getStatisticsTrends = (params: { start_date: string; end_date: string; period?: string; type?: string }) => {
+  return request.get<any, any>('/statistics/trends', { params });
+};
+
+

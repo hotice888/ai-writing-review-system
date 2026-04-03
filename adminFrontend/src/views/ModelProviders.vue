@@ -1,15 +1,15 @@
 <template>
   <div class="model-provider-management">
     <el-card>
-      <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 10px; padding-top: 0;">
+      <div style="display: flex; align-items: flex-start; margin-bottom: 10px; padding-top: 0;">
         <el-tabs v-model="activeTab" type="card" style="flex: 1;">
           <el-tab-pane label="模型平台" name="providers" />
           <el-tab-pane label="可选模型" name="models" />
         </el-tabs>
         
         <div style="display: flex; gap: 12px; align-items: center; flex: 1;">
-          <el-input v-if="activeTab === 'providers'" v-model="searchKeyword" placeholder="平台名称/标识" clearable style="width: 220px;" />
-          <el-input v-if="activeTab === 'models'" v-model="searchModelId" placeholder="模型标识" clearable style="width: 220px;" />
+          <el-input v-if="activeTab === 'providers'" v-model="searchKeyword" placeholder="平台名称和平台标识" clearable style="width: 220px;" />
+          <el-input v-if="activeTab === 'models'" v-model="searchModelId" placeholder="平台名称和模型标识" clearable style="width: 220px;" />
         </div>
         
         <el-button type="primary" @click="handleAdd" icon="Plus">添加模型平台</el-button>
@@ -51,15 +51,23 @@
             <el-table-column prop="description" label="描述" />
             <el-table-column prop="status" label="状态" width="100">
               <template #default="scope">
-                <el-tag :type="scope.row.status === 'enabled' ? 'success' : 'danger'">
-                  {{ scope.row.status === 'enabled' ? '启用' : '禁用' }}
+                <el-tag :type="scope.row.status === 'enabled' ? 'success' : scope.row.status === 'pending' ? 'warning' : 'danger'">
+                  {{ scope.row.status === 'enabled' ? '启用' : scope.row.status === 'pending' ? '待审核' : '禁用' }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="180" fixed="right">
+            <el-table-column label="操作" width="240" fixed="right">
               <template #default="scope">
-                <div style="display: flex; gap: 8px; align-items: center;">
-                  <el-button size="small" @click="handleEdit(scope.row)" :icon="Edit">编辑</el-button>
+                <div style="display: flex; gap: 8px; align-items: center;"> 
+                  <el-button size="small" type="success" @click="handleEdit(scope.row)" :icon="Edit">编辑</el-button>
+                  <el-button 
+                    size="small" 
+                    :type="scope.row.status === 'enabled' ? 'warning' : 'success'" 
+                    @click="handleToggleStatus(scope.row)"
+                  >
+                    {{ scope.row.status === 'enabled' ? '禁用' : scope.row.status === 'disabled' ? '启用' : '审核' }}
+                  </el-button>
+                 
                   <el-button size="small" type="danger" @click="handleDelete(scope.row.id)" :icon="Delete">删除</el-button>
                 </div>
               </template>
@@ -90,9 +98,9 @@
         label-width="120px"
         class="model-provider-form"
       >
-        <el-tabs v-model="dialogActiveTab" type="card" style="margin-bottom: 20px">
-          <el-tab-pane label="基础信息" name="basic">
-            <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+        <el-tabs v-model="dialogActiveTab" type="card" style="margin-bottom: 10px">
+          <el-tab-pane label="基础信息" name="basic" style="padding: 5px;">
+            <div style="display: flex; ">
               <el-form-item label="平台名称" prop="name" required style="flex: 1;">
                 <el-input v-model="formData.name" placeholder="请输入平台名称" />
               </el-form-item>
@@ -100,7 +108,7 @@
                 <el-input v-model="formData.code" placeholder="请输入平台标识" />
               </el-form-item>
             </div>
-            <el-form-item label="备注说明" prop="description">
+            <el-form-item label="备注说明" prop="description" style="margin-bottom: 12px;">
               <el-input
                 v-model="formData.description"
                 type="textarea"
@@ -108,15 +116,13 @@
                 :rows="3"
               />
             </el-form-item>
-            <el-form-item label="状态" prop="status" required>
+            <el-form-item label="状态" prop="status" required style="margin-bottom: 12px;">
               <el-select v-model="formData.status" placeholder="请选择状态">
                 <el-option label="启用" value="enabled" />
                 <el-option label="禁用" value="disabled" />
+                <el-option label="待审核" value="pending" />
               </el-select>
             </el-form-item>
-
-            <el-divider content-position="left">配置信息</el-divider>
-
             <el-form-item label="使用入口" prop="url">
               <div style="display: flex; align-items: center; gap: 10px; width: 100%">
                 <el-input v-model="formData.url" placeholder="请输入使用入口" style="flex: 1;">
@@ -169,9 +175,6 @@
                 </template>
               </el-input>
             </el-form-item>
-
-            <el-divider content-position="left">常用链接</el-divider>
-
             <el-form-item label="常用链接" prop="common_links">
               <el-input
                 v-model="formData.common_links"
@@ -187,7 +190,7 @@
                 <el-icon><Plus /></el-icon> 添加模型
             </el-button>
 
-            <el-form-item >
+            <div style="margin-top: 10px;">
               <el-table :data="formData.models"  border style="width: 100%; margin-bottom: 20px; text-align: left;" stripe>
                 <el-table-column min-width="180" align="left">
                   <template #header>
@@ -214,7 +217,7 @@
                   </template>
                 </el-table-column>
               </el-table>
-            </el-form-item>
+            </div>
           </el-tab-pane>
         </el-tabs>
       </el-form>
@@ -232,7 +235,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Delete, DocumentCopy, Edit, Plus } from '@element-plus/icons-vue';
-import { getModelProviders, createModelProvider, updateModelProvider, deleteModelProvider } from '../api/admin';
+import { getModelProviders, createModelProvider, updateModelProvider, deleteModelProvider, updateModelProviderStatus } from '../api/admin';
 
 interface Model {
   modelId: string;
@@ -281,16 +284,12 @@ const filteredProviderList = computed(() => {
 const filteredAllModels = computed(() => {
   let list = allModels.value;
   
-  if (searchKeyword.value) {
-    const keyword = searchKeyword.value.toLowerCase();
-    list = list.filter(m => 
-      m.providerName.toLowerCase().includes(keyword)
-    );
-  }
-  
   if (searchModelId.value) {
     const keyword = searchModelId.value.toLowerCase();
-    list = list.filter(m => m.modelId.toLowerCase().includes(keyword));
+    list = list.filter(m => 
+      m.providerName.toLowerCase().includes(keyword) || 
+      m.modelId.toLowerCase().includes(keyword)
+    );
   }
   
   return list;
@@ -347,7 +346,7 @@ const loadProviders = async () => {
   }
 };
 
-// 添加模型提供商
+// 添加模型平台
 const handleAdd = () => {
   dialogTitle.value = '添加模型平台';
   currentProviderId.value = '';
@@ -397,6 +396,27 @@ const handleDelete = async (id: string) => {
   }
 };
 
+// 切换模型平台状态
+const handleToggleStatus = async (row: ModelProvider) => {
+  let newStatus: string;
+  if (row.status === 'enabled') {
+    newStatus = 'disabled';
+  } else if (row.status === 'disabled') {
+    newStatus = 'enabled';
+  } else {
+    newStatus = 'enabled';
+  }
+  
+  try {
+    await updateModelProviderStatus(row.id, newStatus);
+    ElMessage.success('状态更新成功');
+    loadProviders();
+  } catch (error) {
+    ElMessage.error('状态更新失败');
+    console.error('Error toggling status:', error);
+  }
+};
+
 // 提交表单
 const handleSubmit = async () => {
   if (!formRef.value) return;
@@ -429,9 +449,10 @@ const handleSubmit = async () => {
     
     dialogVisible.value = false;
     loadProviders();
-  } catch (error) {
-    ElMessage.error('操作失败');
+  } catch (error: any) {
     console.error('Error submitting form:', error);
+    console.error('Error response:', error.response);
+    console.error('Request data:', formData.value);
   }
 };
 

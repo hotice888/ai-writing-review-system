@@ -43,17 +43,17 @@ export const deleteUserModel = (modelId: string) => {
   return request.delete<any, any>(`/user-models/${modelId}`);
 };
 
-// 获取平台支持的模型列表
+// 获取模型平台支持的模型列表
 export const getPlatformModels = () => {
   return request.get<any, any[]>('/user-models/platform/models');
 };
 
-// 获取模型提供商列表
+// 获取模型平台列表
 export const getModelProviders = () => {
   return request.get<any, any[]>('/model-providers');
 };
 
-// 获取所有模型提供商的可选模型
+// 获取所有模型平台的可选模型
 export const getProviderModels = () => {
   return request.get<any, any[]>('/model-providers/models/all');
 };
@@ -61,6 +61,11 @@ export const getProviderModels = () => {
 // 测试模型
 export const testModel = (data: {
   model_id?: string;
+  openai_api_url?: string;
+  anthropic_api_url?: string;
+  api_url?: string;
+  api_key?: string;
+  model?: string;
   messages: Array<{ role: string; content: string }>;
   business_type?: string;
   params?: Record<string, any>;
@@ -68,7 +73,7 @@ export const testModel = (data: {
   return request.post<any, any>('/llm/invoke', data);
 };
 
-// 创建模型提供商
+// 创建模型平台
 export const createModelProvider = (data: {
   name: string;
   code: string;
@@ -88,7 +93,7 @@ export const createModelProvider = (data: {
   return request.post<any, any>('/model-providers', data);
 };
 
-// 更新模型提供商
+// 更新模型平台
 export const updateModelProvider = (providerId: string, data: {
   name: string;
   code: string;
