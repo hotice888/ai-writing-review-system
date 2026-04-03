@@ -3,26 +3,26 @@
     <el-card>
       <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 10px; padding-top: 0;">
         <el-tabs v-model="activeTab" type="card" style="flex: 1;">
-          <el-tab-pane label="提供商" name="providers" />
+          <el-tab-pane label="模型平台" name="providers" />
           <el-tab-pane label="可选模型" name="models" />
         </el-tabs>
         
         <div style="display: flex; gap: 12px; align-items: center; flex: 1;">
-          <el-input v-if="activeTab === 'providers'" v-model="searchKeyword" placeholder="提供商名称或代码" clearable style="width: 220px;" />
+          <el-input v-if="activeTab === 'providers'" v-model="searchKeyword" placeholder="平台名称/标识" clearable style="width: 220px;" />
           <el-input v-if="activeTab === 'models'" v-model="searchModelId" placeholder="模型标识" clearable style="width: 220px;" />
         </div>
         
-        <el-button type="primary" @click="handleAdd" icon="Plus">添加提供商</el-button>
+        <el-button type="primary" @click="handleAdd" icon="Plus">添加模型平台</el-button>
       </div>
       
       <div v-show="activeTab === 'providers'">
         <el-table :data="filteredProviderList" style="width: 100%" border>
-            <el-table-column prop="name" label="提供商名称" width="180">
+            <el-table-column prop="name" label="平台名称" width="180">
               <template #default="scope">
                 <span style="cursor: pointer; color: #409eff;" @click="handleEdit(scope.row)">{{ scope.row.name }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="code" label="提供商编码" width="180">
+            <el-table-column prop="code" label="平台标识" width="180">
               <template #default="scope">
                 <span 
                   :style="{ cursor: scope.row.url ? 'pointer' : 'default', color: scope.row.url ? '#409eff' : 'inherit' }" 
@@ -69,8 +69,7 @@
       
       <div v-show="activeTab === 'models'">
         <el-table :data="filteredAllModels" style="width: 100%" border>
-          <el-table-column prop="providerName" label="提供商" width="180" />
-          <el-table-column prop="brand" label="模型厂商" width="120" />
+          <el-table-column prop="providerName" label="模型平台" width="180" />
           <el-table-column prop="modelId" label="模型标识" min-width="180" />
           <el-table-column prop="capability" label="模型说明" min-width="250" />
         </el-table>
@@ -94,11 +93,11 @@
         <el-tabs v-model="dialogActiveTab" type="card" style="margin-bottom: 20px">
           <el-tab-pane label="基础信息" name="basic">
             <div style="display: flex; gap: 20px; margin-bottom: 20px;">
-              <el-form-item label="提供商名称" prop="name" required style="flex: 1;">
-                <el-input v-model="formData.name" placeholder="请输入提供商名称" />
+              <el-form-item label="平台名称" prop="name" required style="flex: 1;">
+                <el-input v-model="formData.name" placeholder="请输入平台名称" />
               </el-form-item>
-              <el-form-item label="提供商编码" prop="code" required style="flex: 1;">
-                <el-input v-model="formData.code" placeholder="请输入提供商编码" />
+              <el-form-item label="平台标识" prop="code" required style="flex: 1;">
+                <el-input v-model="formData.code" placeholder="请输入平台标识" />
               </el-form-item>
             </div>
             <el-form-item label="备注说明" prop="description">
@@ -162,7 +161,7 @@
             </el-form-item>
 
             <el-form-item label="兼容模式" prop="protocol_base_url">
-              <el-input v-model="formData.protocol_base_url" placeholder="请输入协议格式的Base URL">
+              <el-input v-model="formData.protocol_base_url" placeholder="请输入兼容模式的Base URL">
                 <template #append>
                   <el-button size="small" @click="copyToClipboard('protocol_base_url')" v-if="formData.protocol_base_url">
                     <el-icon><DocumentCopy /></el-icon>
@@ -184,20 +183,13 @@
             </el-form-item>
           </el-tab-pane>
           <el-tab-pane label="可选模型" name="models">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 10px; background-color: #f5f7fa; border-radius: 4px;">
-              <span style="font-weight: 600; font-size: 14px; color: #303133;">模型列表：</span>
-              <div style="color: #909399; font-size: 12px;">模型标识为必填项</div>
-              <el-button type="primary" plain @click="addModel" size="default">
+            <div style="display: flex; justify-content: space-between; align-items: left; margin-bottom: 20px; padding: 10px; background-color: #f5f7fa; border-radius: 4px;">
+              <el-button type="primary" plain @click="addModel" size="small">
                 <el-icon><Plus /></el-icon> 添加模型
               </el-button>
             </div>
-            <el-form-item>
-              <el-table :data="formData.models" border style="width: 100%; margin-bottom: 20px; text-align: left;" stripe>
-                <el-table-column label="模型厂商" min-width="120" align="left">
-                  <template #default="scope">
-                    <el-input v-model="scope.row.brand" placeholder="例如：OpenAI" />
-                  </template>
-                </el-table-column>
+            <el-form-item >
+              <el-table :data="formData.models"  border style="width: 100%; margin-bottom: 20px; text-align: left;" stripe>
                 <el-table-column label="模型标识" min-width="180" align="left">
                   <template #default="scope">
                     <el-input 
@@ -241,7 +233,6 @@ import { Delete, DocumentCopy, Edit, Plus } from '@element-plus/icons-vue';
 import { getModelProviders, createModelProvider, updateModelProvider, deleteModelProvider } from '../api/admin';
 
 interface Model {
-  brand: string;
   modelId: string;
   capability: string;
 }
@@ -264,7 +255,7 @@ interface ModelProvider {
 
 const providerList = ref<ModelProvider[]>([]);
 const dialogVisible = ref(false);
-const dialogTitle = ref('添加提供商');
+const dialogTitle = ref('添加模型平台');
 const formRef = ref();
 const activeTab = ref('providers');
 const dialogActiveTab = ref('basic');
@@ -291,8 +282,7 @@ const filteredAllModels = computed(() => {
   if (searchKeyword.value) {
     const keyword = searchKeyword.value.toLowerCase();
     list = list.filter(m => 
-      m.providerName.toLowerCase().includes(keyword) || 
-      (m.brand && m.brand.toLowerCase().includes(keyword))
+      m.providerName.toLowerCase().includes(keyword)
     );
   }
   
@@ -306,7 +296,7 @@ const filteredAllModels = computed(() => {
 
 
 
-// 收集所有提供商的可选模型
+// 收集所有平台的可选模型
 const allModels = computed(() => {
   const models: any[] = [];
   providerList.value.forEach(provider => {
@@ -314,7 +304,6 @@ const allModels = computed(() => {
       provider.models.forEach((model: any) => {
         models.push({
           providerName: provider.name,
-          brand: model.brand,
           modelId: model.modelId,
           capability: model.capability
         });
@@ -338,8 +327,8 @@ const formData = ref({
 });
 
 const rules = {
-  name: [{ required: true, message: '请输入提供商名称', trigger: 'blur' }],
-  code: [{ required: true, message: '请输入提供商编码', trigger: 'blur' }],
+  name: [{ required: true, message: '请输入平台名称', trigger: 'blur' }],
+  code: [{ required: true, message: '请输入平台标识', trigger: 'blur' }],
   status: [{ required: true, message: '请选择状态', trigger: 'change' }]
 };
 
@@ -351,14 +340,14 @@ const loadProviders = async () => {
     const response = await getModelProviders();
     providerList.value = response;
   } catch (error) {
-    ElMessage.error('获取模型提供商列表失败');
+    ElMessage.error('获取模型平台列表失败');
     console.error('Error loading providers:', error);
   }
 };
 
 // 添加模型提供商
 const handleAdd = () => {
-  dialogTitle.value = '添加提供商';
+  dialogTitle.value = '添加模型平台';
   currentProviderId.value = '';
   Object.assign(formData.value, {
     name: '',
@@ -375,9 +364,9 @@ const handleAdd = () => {
   dialogVisible.value = true;
 };
 
-// 编辑模型提供商
+// 编辑模型平台
 const handleEdit = (row: ModelProvider) => {
-  dialogTitle.value = '编辑提供商';
+  dialogTitle.value = '编辑模型平台';
   currentProviderId.value = row.id;
   Object.assign(formData.value, {
     name: row.name,
@@ -394,14 +383,14 @@ const handleEdit = (row: ModelProvider) => {
   dialogVisible.value = true;
 };
 
-// 删除模型提供商
+// 删除模型平台
 const handleDelete = async (id: string) => {
   try {
     await deleteModelProvider(id);
-    ElMessage.success('模型提供商删除成功');
+    ElMessage.success('模型平台删除成功');
     loadProviders();
   } catch (error) {
-    ElMessage.error('删除模型提供商失败');
+    ElMessage.error('删除模型平台失败');
     console.error('Error deleting provider:', error);
   }
 };
@@ -430,10 +419,10 @@ const handleSubmit = async () => {
     
     if (currentProviderId.value) {
       await updateModelProvider(currentProviderId.value, formData.value);
-      ElMessage.success('模型提供商更新成功');
+      ElMessage.success('模型平台更新成功');
     } else {
       await createModelProvider(formData.value);
-      ElMessage.success('模型提供商创建成功');
+      ElMessage.success('模型平台创建成功');
     }
     
     dialogVisible.value = false;
@@ -446,7 +435,7 @@ const handleSubmit = async () => {
 
 // 添加模型
 const addModel = () => {
-  formData.value.models.push({ brand: '', modelId: '', capability: '' });
+  formData.value.models.push({ modelId: '', capability: '' });
 };
 
 // 删除模型

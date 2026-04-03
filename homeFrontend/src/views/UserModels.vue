@@ -72,10 +72,11 @@
       :close-on-click-modal="false"
     >
       <el-form :model="formData" label-width="100px">
-        <el-form-item label="可选模型">
-          <el-button type="primary" plain @click="openModelSelector" style="width: 100%;">
-            从模型提供商选择
+        <el-form-item label="模型平台">
+          <el-button type="primary" plain @click="openModelSelector" style="width: 50%;">
+            选择模型平台
           </el-button>
+          <span style="color: #909399; font-size: 12px; margin-left: 10px;">[如果没有您需要的平台，请直接填写]</span>
         </el-form-item>
         
         <el-form-item label="模型名称">
