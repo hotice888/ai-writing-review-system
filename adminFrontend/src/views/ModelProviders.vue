@@ -183,14 +183,16 @@
             </el-form-item>
           </el-tab-pane>
           <el-tab-pane label="可选模型" name="models">
-            <div style="display: flex; justify-content: space-between; align-items: left; margin-bottom: 20px; padding: 10px; background-color: #f5f7fa; border-radius: 4px;">
-              <el-button type="primary" plain @click="addModel" size="small">
+            <el-button type="primary" plain @click="addModel" size="small">
                 <el-icon><Plus /></el-icon> 添加模型
-              </el-button>
-            </div>
+            </el-button>
+
             <el-form-item >
               <el-table :data="formData.models"  border style="width: 100%; margin-bottom: 20px; text-align: left;" stripe>
-                <el-table-column label="模型标识" min-width="180" align="left">
+                <el-table-column min-width="180" align="left">
+                  <template #header>
+                    <span style="color: #f56c6c;">模型标识</span>
+                  </template>
                   <template #default="scope">
                     <el-input 
                       v-model="scope.row.modelId" 
