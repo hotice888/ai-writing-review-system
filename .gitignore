@@ -49,3 +49,8 @@ rename-*.js
 update-*.js
 setup-*.js
 create-*.js
+backend/check_data.js
+backend/test_stats.js
+
+scripts/seeds/TODO.md
+.gitignore

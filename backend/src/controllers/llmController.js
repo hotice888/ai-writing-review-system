@@ -27,7 +27,7 @@ const invokeLLM = async (req, res) => {
     const sessionId = session_id || uuidv4();
     console.log('使用的Session ID:', sessionId);
     let provider = 'custom';
-    let apiUrl = api_url || openai_api_url || anthropic_api_url;
+    let apiUrl = anthropic_api_url || openai_api_url ;
     let apiKey = api_key;
     let modelName = model;
     
@@ -46,16 +46,14 @@ const invokeLLM = async (req, res) => {
         });
       }
       
-      modelConfig = modelResult.rows[0];
-      provider = modelConfig.provider.toLowerCase();
-      modelName = modelConfig.model;
+      const modelConfig = modelResult.rows[0];
+      provider = 'custom';
+      modelName = model;
       
       if (modelConfig.openai_api_url) {
         apiUrl = modelConfig.openai_api_url;
       } else if (modelConfig.anthropic_api_url) {
         apiUrl = modelConfig.anthropic_api_url;
-      } else {
-        apiUrl = modelConfig.api_url;
       }
       
       apiKey = modelConfig.api_key;

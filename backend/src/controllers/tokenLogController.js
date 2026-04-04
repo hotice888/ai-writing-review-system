@@ -11,7 +11,11 @@ const getTokenLogs = async (req, res) => {
       status,
       start_date,
       end_date,
-      search
+      search,
+      exact_username,
+      exact_model_identifier,
+      exact_model_name,
+      exact_session_id
     } = req.query;
     
     const offset = (page - 1) * pageSize;
@@ -57,11 +61,36 @@ const getTokenLogs = async (req, res) => {
       paramIndex++;
     }
     
+    if (exact_username) {
+      conditions.push(`u.username ILIKE $${paramIndex}`);
+      params.push(`%${exact_username}%`);
+      paramIndex++;
+    }
+    
+    if (exact_model_name) {
+      conditions.push(`um.name ILIKE $${paramIndex}`);
+      params.push(`%${exact_model_name}%`);
+      paramIndex++;
+    }
+    
+    if (exact_session_id) {
+      conditions.push(`lr.session_id ILIKE $${paramIndex}`);
+      params.push(`%${exact_session_id}%`);
+      paramIndex++;
+    }
+    
+    if (exact_model_identifier) {
+      conditions.push(`lr.request_params->>'model' ILIKE $${paramIndex}`);
+      params.push(`%${exact_model_identifier}%`);
+      paramIndex++;
+    }
+    
     if (search) {
       conditions.push(`(
         u.username ILIKE $${paramIndex} OR 
-        um.name ILIKE $${paramIndex} OR 
-        um.model ILIKE $${paramIndex}
+        um.name ILIKE $${paramIndex} OR
+        lr.request_params->>'model' ILIKE $${paramIndex} OR
+        lr.session_id ILIKE $${paramIndex}
       )`);
       params.push(`%${search}%`);
       paramIndex++;
@@ -100,11 +129,10 @@ const getTokenLogs = async (req, res) => {
         lr.duration_ms,
         lr.created_at,
         lr.completed_at,
+        lr.request_params,
         u.username,
         u.email,
-        um.name as model_name,
-        um.provider,
-        um.model as model_identifier
+        um.name as model_name
       FROM llm_request_records lr
       LEFT JOIN users u ON lr.user_id = u.id
       LEFT JOIN user_models um ON lr.model_id = um.id
@@ -117,11 +145,17 @@ const getTokenLogs = async (req, res) => {
     
     const dataResult = await pool.query(dataQuery, params);
     
+    // 从 request_params 中解析出 model_identifier
+    const listWithModelIdentifier = dataResult.rows.map(row => ({
+      ...row,
+      model_identifier: row.request_params?.model || '-'
+    }));
+    
     res.json({
       code: 200,
       message: '获取成功',
       data: {
-        list: dataResult.rows,
+        list: listWithModelIdentifier,
         total: total,
         page: parseInt(page),
         pageSize: parseInt(pageSize)
@@ -266,9 +300,7 @@ const getTokenLogDetail = async (req, res) => {
         lr.*,
         u.username,
         u.email,
-        um.name as model_name,
-        um.provider,
-        um.model as model_identifier
+        um.name as model_name
       FROM llm_request_records lr
       LEFT JOIN users u ON lr.user_id = u.id
       LEFT JOIN user_models um ON lr.model_id = um.id
@@ -284,10 +316,16 @@ const getTokenLogDetail = async (req, res) => {
       });
     }
     
+    // 从 request_params 中解析出 model_identifier
+    const detailData = {
+      ...result.rows[0],
+      model_identifier: result.rows[0].request_params?.model || '-'
+    };
+    
     res.json({
       code: 200,
       message: '获取成功',
-      data: result.rows[0]
+      data: detailData
     });
     
   } catch (error) {

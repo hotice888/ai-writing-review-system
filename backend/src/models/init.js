@@ -156,10 +156,8 @@ const initDatabase = async () => {
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR(100) NOT NULL,
         code VARCHAR(100) UNIQUE NOT NULL,
-        url VARCHAR(255),
         openai_base_url VARCHAR(255),
         anthropic_base_url VARCHAR(255),
-        protocol_base_url VARCHAR(255),
         description TEXT,
         common_links TEXT,
         status VARCHAR(20) DEFAULT 'enabled',
@@ -186,18 +184,30 @@ const initDatabase = async () => {
       CREATE TABLE IF NOT EXISTS user_models (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        model_provider_id UUID REFERENCES model_providers(id) ON DELETE SET NULL,
         name VARCHAR(100) NOT NULL,
-        code VARCHAR(100) NOT NULL,
-        provider VARCHAR(50) NOT NULL, -- openai, anthropic, glm, custom, etc.
-        model VARCHAR(100) NOT NULL, -- gpt-4, claude-3-sonnet-20240229, etc.
-        api_url VARCHAR(255),
         api_key VARCHAR(255),
         openai_api_url VARCHAR(255),
         anthropic_api_url VARCHAR(255),
+        anthropic_api_flag BOOLEAN DEFAULT false, -- Anthropic API连通标识
+        openai_api_flag BOOLEAN DEFAULT false, -- OpenAI API连通标识
         description TEXT,
         status VARCHAR(20) DEFAULT 'enabled',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 用户模型配置表（存储模型标识和状态）
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_model_configs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_model_id UUID NOT NULL REFERENCES user_models(id) ON DELETE CASCADE,
+        model_identifier VARCHAR(100) NOT NULL, -- 模型标识，如 gpt-4
+        status VARCHAR(20) DEFAULT 'untested', -- 状态：untested（未测试）、connected（已连通）
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_model_id, model_identifier)
       )
     `);
 
@@ -227,6 +237,36 @@ const initDatabase = async () => {
         instructions TEXT,
         model_id UUID REFERENCES user_models(id) ON DELETE SET NULL, -- 关联用户模型
         status VARCHAR(20) DEFAULT 'enabled',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 字段表
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS field_options (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        field_name VARCHAR(100) NOT NULL,
+        field_code VARCHAR(100) UNIQUE NOT NULL,
+        status VARCHAR(20) DEFAULT 'enabled',
+        parent_field_id UUID REFERENCES field_options(id) ON DELETE SET NULL,
+        field_level INT DEFAULT 1,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 选项表
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS field_option_items (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        field_id UUID NOT NULL REFERENCES field_options(id) ON DELETE CASCADE,
+        option_text VARCHAR(200) NOT NULL,
+        option_value VARCHAR(200) NOT NULL,
+        status VARCHAR(20) DEFAULT 'enabled',
+        display_order INT DEFAULT 0,
+        parent_option_id UUID REFERENCES field_option_items(id) ON DELETE SET NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )

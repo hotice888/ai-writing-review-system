@@ -13,13 +13,18 @@ export const getUserModelById = (modelId: string) => {
 // 创建用户模型
 export const createUserModel = (data: {
   name: string;
-  code: string;
-  provider: string;
-  model: string;
-  api_url?: string;
+  model_provider_id?: string;
   api_key?: string;
+  openai_api_url?: string;
+  anthropic_api_url?: string;
+  anthropic_api_flag?: boolean;
+  openai_api_flag?: boolean;
   description?: string;
   status: string;
+  configs?: Array<{
+    model_identifier: string;
+    status?: string;
+  }>;
 }) => {
   return request.post<any, any>('/user-models', data);
 };
@@ -27,13 +32,18 @@ export const createUserModel = (data: {
 // 更新用户模型
 export const updateUserModel = (modelId: string, data: {
   name: string;
-  code: string;
-  provider: string;
-  model: string;
-  api_url?: string;
+  model_provider_id?: string;
   api_key?: string;
+  openai_api_url?: string;
+  anthropic_api_url?: string;
+  anthropic_api_flag?: boolean;
+  openai_api_flag?: boolean;
   description?: string;
   status: string;
+  configs?: Array<{
+    model_identifier: string;
+    status?: string;
+  }>;
 }) => {
   return request.put<any, any>(`/user-models/${modelId}`, data);
 };
@@ -41,6 +51,30 @@ export const updateUserModel = (modelId: string, data: {
 // 删除用户模型
 export const deleteUserModel = (modelId: string) => {
   return request.delete<any, any>(`/user-models/${modelId}`);
+};
+
+// 获取模型配置列表
+export const getModelConfigs = (userModelId: string) => {
+  return request.get<any, any[]>(`/user-models/${userModelId}/configs`);
+};
+
+// 创建模型配置
+export const createModelConfig = (userModelId: string, data: {
+  model_identifier: string;
+}) => {
+  return request.post<any, any>(`/user-models/${userModelId}/configs`, data);
+};
+
+// 更新模型配置
+export const updateModelConfig = (userModelId: string, configId: string, data: {
+  status: string;
+}) => {
+  return request.put<any, any>(`/user-models/${userModelId}/configs/${configId}`, data);
+};
+
+// 删除模型配置
+export const deleteModelConfig = (userModelId: string, configId: string) => {
+  return request.delete<any, any>(`/user-models/${userModelId}/configs/${configId}`);
 };
 
 // 获取模型平台支持的模型列表

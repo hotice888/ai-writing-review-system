@@ -262,4 +262,74 @@ export const getStatisticsTrends = (params: { start_date: string; end_date: stri
   return request.get<any, any>('/statistics/trends', { params });
 };
 
+// 字段选项管理
+export const getFieldOptions = (params?: { page?: number; pageSize?: number; keyword?: string; status?: string }) => {
+  return request.get<any, any>('/field-options', { params });
+};
+
+export const getFieldOptionById = (id: string) => {
+  return request.get<any, any>(`/field-options/${id}`);
+};
+
+export const createFieldOption = (data: {
+  field_name: string;
+  field_code: string;
+  status?: string;
+  parent_field_id?: string | null;
+  field_level?: number;
+  description?: string;
+}) => {
+  return request.post<any, any>('/field-options', data);
+};
+
+export const updateFieldOption = (id: string, data: any) => {
+  return request.put<any, any>(`/field-options/${id}`, data);
+};
+
+export const deleteFieldOption = (id: string) => {
+  return request.delete<any, any>(`/field-options/${id}`);
+};
+
+export const updateFieldOptionStatus = (id: string, status: string) => {
+  return request.put<any, any>(`/field-options/${id}/status`, { status });
+};
+
+export const getFieldOptionItems = (fieldId: string, params?: { page?: number; pageSize?: number; keyword?: string; status?: string }) => {
+  return request.get<any, any>(`/field-options/${fieldId}/items`, { params });
+};
+
+export const getAllOptionItems = (params?: { page?: number; pageSize?: number; field_id?: string; keyword?: string; status?: string }) => {
+  return request.get<any, any>('/field-options/items', { params });
+};
+
+export const createFieldOptionItem = (fieldId: string, data: {
+  option_text: string;
+  option_value: string;
+  status?: string;
+  display_order?: number;
+  parent_option_id?: string | null;
+}) => {
+  return request.post<any, any>(`/field-options/${fieldId}/items`, data);
+};
+
+export const updateFieldOptionItem = (id: string, data: any) => {
+  return request.put<any, any>(`/field-options/items/${id}`, data);
+};
+
+export const deleteFieldOptionItem = (id: string) => {
+  return request.delete<any, any>(`/field-options/items/${id}`);
+};
+
+export const batchDeleteOptionItems = (ids: string[]) => {
+  return request.delete<any, any>('/field-options/items/batch', { data: { ids } });
+};
+
+export const updateOptionItemStatus = (id: string, status: string) => {
+  return request.put<any, any>(`/field-options/items/${id}/status`, { status });
+};
+
+export const refreshOptionOrder = (fieldId: string, data: { orders: { id: string; display_order: number }[] }) => {
+  return request.put<any, any>(`/field-options/${fieldId}/items/refresh-order`, data);
+};
+
 

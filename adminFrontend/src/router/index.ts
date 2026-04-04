@@ -68,10 +68,15 @@ const routes = [
     component: () => import('../views/Agents.vue'),
   },
   {
-    path: '/user-agents',
-    name: 'UserAgents',
-    component: () => import('../views/UserAgents.vue'),
-  },
+        path: '/user-agents',
+        name: 'UserAgents',
+        component: () => import('../views/UserAgents.vue'),
+      },
+      {
+        path: '/field-options',
+        name: 'FieldOptions',
+        component: () => import('../views/FieldOptions.vue'),
+      },
       {
         path: '/not-implemented',
         name: 'NotImplemented',

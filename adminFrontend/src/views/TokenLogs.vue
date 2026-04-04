@@ -5,9 +5,9 @@
       <div class="filter-container">
         <el-input
           v-model="searchKeyword"
-          placeholder="搜索用户名、模型名称"
+          placeholder="模糊搜索：用户名、模型名称、模型标识、会话ID"
           clearable
-          style="width: 200px"
+          style="width: 300px"
           @clear="handleSearch"
           @keyup.enter="handleSearch"
         >
@@ -49,8 +49,50 @@
           <el-option label="失败" value="failed" />
         </el-select>
       </div>
+      
+      <!-- 组合查询条件 -->
+      <div class="filter-container" style="margin-top: 5px;">
+        <el-input
+          v-model="exactUsername"
+          placeholder="用户名"
+          clearable
+          style="width: 150px"
+          @clear="handleSearch"
+          @keyup.enter="handleSearch"
+        />
+        <el-input
+          v-model="exactModelName"
+          placeholder="模型名称"
+          clearable
+          style="width: 150px"
+          @clear="handleSearch"
+          @keyup.enter="handleSearch"
+        />
+        <el-input
+          v-model="exactModelIdentifier"
+          placeholder="模型标识"
+          clearable
+          style="width: 150px"
+          @clear="handleSearch"
+          @keyup.enter="handleSearch"
+        />
+        <el-input
+          v-model="exactSessionId"
+          placeholder="会话ID"
+          clearable
+          style="width: 180px"
+          @clear="handleSearch"
+          @keyup.enter="handleSearch"
+        />
+        <el-button type="primary" size="small" @click="handleSearch">
+          查询
+        </el-button>
+        <el-button size="small" @click="handleReset">
+          重置
+        </el-button>
+      </div>
 
-      <div style="margin-bottom: 15px;">
+      <div style="margin-bottom: 5px;">
         <el-button 
           type="danger" 
           size="small" 
@@ -58,6 +100,15 @@
           @click="handleBatchDelete"
         >
           批量删除 ({{ selectedLogs.length }})
+        </el-button>
+        <el-button 
+          type="primary" 
+          size="small" 
+          @click="handleRefresh"
+          :loading="loading"
+        >
+          <el-icon><Refresh /></el-icon>
+          刷新
         </el-button>
       </div>
       
@@ -69,50 +120,42 @@
         size="small"
         @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" width="40" />
+        <el-table-column type="selection" width="55" />
+        <el-table-column prop="created_at" label="请求时间" width="170">
+          <template #default="{ row }">
+            {{ formatDateTime(row.created_at) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="username" label="用户" width="100">
           <template #default="{ row }">
             <div>{{ row.username || '-' }}</div>
           </template>
         </el-table-column>
-        <el-table-column prop="model_name" label="模型名称" width="200">
+        <el-table-column prop="model_name" label="模型名称" min-width="150">
           <template #default="{ row }">
             <div style="font-size: 12px; word-break: break-all">{{ row.model_name || '-' }}</div>
           </template>
         </el-table-column>
-        <el-table-column prop="model_identifier" label="模型标识" width="120">
+        <el-table-column prop="model_identifier" label="模型标识" min-width="150">
           <template #default="{ row }">
             <div style="font-size: 12px; word-break: break-all">{{ row.model_identifier || '-' }}</div>
           </template>
         </el-table-column>
-        <el-table-column prop="business_type" label="业务类型" width="90">
+        <el-table-column prop="business_type" label="业务类型" width="100">
           <template #default="{ row }">
             <el-tag :type="getBusinessTypeColor(row.business_type)" size="small">
               {{ getBusinessTypeName(row.business_type) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="session_id" label="会话ID" width="180">
+        <el-table-column prop="total_tokens" label="Token使用量" width="110">
           <template #default="{ row }">
-            <div style="font-size: 12px; word-break: break-all">{{ row.session_id || '-' }}</div>
+            <div style="font-size: 14px; font-weight: 500">{{ row.total_tokens || 0 }}</div>
           </template>
         </el-table-column>
-        <el-table-column prop="request_id" label="请求ID" width="180">
+        <el-table-column prop="duration_ms" label="耗时" width="90">
           <template #default="{ row }">
-            <div style="font-size: 12px; word-break: break-all">{{ row.request_id || '-' }}</div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="response_id" label="响应ID" width="180">
-          <template #default="{ row }">
-            <div style="font-size: 12px; word-break: break-all">{{ row.response_id || '-' }}</div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="total_tokens" label="Token使用" width="110">
-          <template #default="{ row }">
-            <div style="font-size: 12px">{{ row.total_tokens || 0 }}</div>
-            <div style="font-size: 11px; color: #999">
-              请求: {{ row.prompt_tokens || 0 }} / 响应: {{ row.completion_tokens || 0 }}
-            </div>
+            {{ row.duration_ms || 0 }}ms
           </template>
         </el-table-column>
         <el-table-column prop="response_success" label="请求状态" width="90">
@@ -129,14 +172,9 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="duration_ms" label="耗时" width="80">
+        <el-table-column prop="session_id" label="会话ID" min-width="200">
           <template #default="{ row }">
-            {{ row.duration_ms || 0 }}ms
-          </template>
-        </el-table-column>
-        <el-table-column prop="created_at" label="请求时间" width="160">
-          <template #default="{ row }">
-            {{ formatDateTime(row.created_at) }}
+            <div style="font-size: 12px; word-break: break-all">{{ row.session_id || '-' }}</div>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="80" fixed="right">
@@ -248,7 +286,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Search } from '@element-plus/icons-vue';
+import { Search, Refresh } from '@element-plus/icons-vue';
 import { getTokenLogs, getTokenLogDetail, deleteTokenLogsBatch } from '../api/tokenLogs';
 
 const loading = ref(false);
@@ -261,6 +299,10 @@ const searchKeyword = ref('');
 const filterBusinessType = ref('');
 const filterStatus = ref('');
 const dateRange = ref(null);
+const exactUsername = ref('');
+const exactModelName = ref('');
+const exactModelIdentifier = ref('');
+const exactSessionId = ref('');
 const detailDialogVisible = ref(false);
 const currentLog = ref(null);
 const currentLogDetail = ref(null);
@@ -268,6 +310,25 @@ const currentLogDetail = ref(null);
 const handleSearch = async () => {
   page.value = 1;
   await fetchLogs();
+};
+
+const handleRefresh = async () => {
+  await fetchLogs();
+  ElMessage.success('刷新成功');
+};
+
+const handleReset = () => {
+  searchKeyword.value = '';
+  filterBusinessType.value = '';
+  filterStatus.value = '';
+  dateRange.value = null;
+  exactUsername.value = '';
+  exactModelName.value = '';
+  exactModelIdentifier.value = '';
+  exactSessionId.value = '';
+  page.value = 1;
+  fetchLogs();
+  ElMessage.success('已重置查询条件');
 };
 
 const handleSelectionChange = (selection) => {
@@ -336,6 +397,22 @@ const fetchLogs = async () => {
     if (dateRange.value && dateRange.value.length === 2) {
       params.start_date = dateRange.value[0].toISOString();
       params.end_date = dateRange.value[1].toISOString();
+    }
+    
+    if (exactUsername.value) {
+      params.exact_username = exactUsername.value;
+    }
+    
+    if (exactModelName.value) {
+      params.exact_model_name = exactModelName.value;
+    }
+    
+    if (exactModelIdentifier.value) {
+      params.exact_model_identifier = exactModelIdentifier.value;
+    }
+    
+    if (exactSessionId.value) {
+      params.exact_session_id = exactSessionId.value;
     }
     
     const result = await getTokenLogs(params);
@@ -444,7 +521,7 @@ onMounted(() => {
 
 <style scoped>
 .token-logs {
-  padding: 15px;
+  padding: 5px;
 }
 
 .token-log-detail-dialog .el-dialog__body {
@@ -494,7 +571,7 @@ onMounted(() => {
 }
 
 .token-log-detail-dialog .el-card__body {
-  padding: 8px;
+  padding: 5px;
 }
 
 .token-log-detail-dialog .el-input__inner {
@@ -512,8 +589,8 @@ onMounted(() => {
 
 .filter-container {
   display: flex;
-  gap: 10px;
-  margin-bottom: 15px;
+  gap: 5px;
+  margin-bottom: 5px;
   flex-wrap: wrap;
 }
 

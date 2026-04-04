@@ -24,27 +24,19 @@
             </el-table-column>
             <el-table-column prop="code" label="平台标识" width="180">
               <template #default="scope">
-                <span 
-                  :style="{ cursor: scope.row.url ? 'pointer' : 'default', color: scope.row.url ? '#409eff' : 'inherit' }" 
-                  @click="scope.row.url && openLink(scope.row.url)"
-                >
-                  {{ scope.row.code }}
-                </span>
+                {{ scope.row.code }}
               </template>
             </el-table-column>
             <el-table-column label="Base URL" width="150">
               <template #default="scope">
-                <div v-if="scope.row.openai_base_url || scope.row.anthropic_base_url || scope.row.protocol_base_url">
-                  <div v-if="scope.row.openai_base_url" style="margin-bottom: 4px;">
-                    <span style="font-weight: 500;">OpenAI</span>
-                  </div>
+                <div v-if="scope.row.openai_base_url || scope.row.anthropic_base_url">
                   <div v-if="scope.row.anthropic_base_url" style="margin-bottom: 4px;">
                     <span style="font-weight: 500;">Anthropic</span>
                   </div>
-                  <div v-if="scope.row.protocol_base_url">
-                    <span style="font-weight: 500;">兼容模式</span>
+                  <div v-if="scope.row.openai_base_url" style="margin-bottom: 4px;">
+                    <span style="font-weight: 500;">OpenAI</span>
                   </div>
-                </div>
+                 </div>
                 <span v-else>-</span>
               </template>
             </el-table-column>
@@ -123,31 +115,24 @@
                 <el-option label="待审核" value="pending" />
               </el-select>
             </el-form-item>
-            <el-form-item label="使用入口" prop="url">
-              <div style="display: flex; align-items: center; gap: 10px; width: 100%">
-                <el-input v-model="formData.url" placeholder="请输入使用入口" style="flex: 1;">
-                  <template #append>
-                    <el-button size="small" @click="copyToClipboard('url')" v-if="formData.url">
-                      <el-icon><DocumentCopy /></el-icon>
-                    </el-button>
-                  </template>
-                </el-input>
-                <el-button 
-                  size="small" 
-                  type="primary" 
-                  @click="openLink(formData.url)" 
-                  v-if="formData.url"
-                  plain
-                >
-                  打开链接
-                </el-button>
-              </div>
-            </el-form-item>
-
             <el-divider content-position="left">Base URL</el-divider>
-
+            <el-form-item label="Anthropic" prop="anthropic_base_url" required>
+              <template #label>
+                <span style="display: flex; align-items: center;">
+                  Anthropic
+                  <span style="color: #f56c6c; margin-left: 4px;">*</span>
+                </span>
+              </template>
+              <el-input v-model="formData.anthropic_base_url" placeholder="请输入BaseURL[兼容或Anthropic]">
+                <template #append>
+                  <el-button size="small" @click="copyToClipboard('anthropic_base_url')" v-if="formData.anthropic_base_url">
+                    <el-icon><DocumentCopy /></el-icon>
+                  </el-button>
+                </template>
+              </el-input>
+            </el-form-item>
             <el-form-item label="OpenAI" prop="openai_base_url">
-              <el-input v-model="formData.openai_base_url" placeholder="请输入OpenAI格式的Base URL">
+              <el-input v-model="formData.openai_base_url" placeholder="请输入OpenAI API URL[与Anthropic不同时]">
                 <template #append>
                   <el-button size="small" @click="copyToClipboard('openai_base_url')" v-if="formData.openai_base_url">
                     <el-icon><DocumentCopy /></el-icon>
@@ -156,26 +141,9 @@
               </el-input>
             </el-form-item>
 
-            <el-form-item label="Anthropic" prop="anthropic_base_url">
-              <el-input v-model="formData.anthropic_base_url" placeholder="请输入Anthropic格式的Base URL">
-                <template #append>
-                  <el-button size="small" @click="copyToClipboard('anthropic_base_url')" v-if="formData.anthropic_base_url">
-                    <el-icon><DocumentCopy /></el-icon>
-                  </el-button>
-                </template>
-              </el-input>
-            </el-form-item>
 
-            <el-form-item label="兼容模式" prop="protocol_base_url">
-              <el-input v-model="formData.protocol_base_url" placeholder="请输入兼容模式的Base URL">
-                <template #append>
-                  <el-button size="small" @click="copyToClipboard('protocol_base_url')" v-if="formData.protocol_base_url">
-                    <el-icon><DocumentCopy /></el-icon>
-                  </el-button>
-                </template>
-              </el-input>
-            </el-form-item>
-            <el-form-item label="常用链接" prop="common_links">
+
+           <el-form-item label="常用链接" prop="common_links">
               <el-input
                 v-model="formData.common_links"
                 type="textarea"
@@ -246,10 +214,8 @@ interface ModelProvider {
   id: string;
   name: string;
   code: string;
-  url: string;
   openai_base_url: string;
   anthropic_base_url: string;
-  protocol_base_url: string;
   description: string;
   status: string;
   models: Model[];
@@ -317,10 +283,8 @@ const allModels = computed(() => {
 const formData = ref({
   name: '',
   code: '',
-  url: '',
   openai_base_url: '',
   anthropic_base_url: '',
-  protocol_base_url: '',
   description: '',
   status: 'enabled',
   common_links: '',
@@ -330,7 +294,8 @@ const formData = ref({
 const rules = {
   name: [{ required: true, message: '请输入平台名称', trigger: 'blur' }],
   code: [{ required: true, message: '请输入平台标识', trigger: 'blur' }],
-  status: [{ required: true, message: '请选择状态', trigger: 'change' }]
+  status: [{ required: true, message: '请选择状态', trigger: 'change' }],
+  anthropic_base_url: [{ required: true, message: '请输入Anthropic BaseURL', trigger: 'blur' }]
 };
 
 const currentProviderId = ref('');
@@ -353,10 +318,8 @@ const handleAdd = () => {
   Object.assign(formData.value, {
     name: '',
     code: '',
-    url: '',
     openai_base_url: '',
     anthropic_base_url: '',
-    protocol_base_url: '',
     description: '',
     status: 'enabled',
     common_links: '',
@@ -372,10 +335,8 @@ const handleEdit = (row: ModelProvider) => {
   Object.assign(formData.value, {
     name: row.name,
     code: row.code,
-    url: row.url,
     openai_base_url: row.openai_base_url,
     anthropic_base_url: row.anthropic_base_url || '',
-    protocol_base_url: row.protocol_base_url,
     description: row.description,
     status: row.status,
     common_links: row.common_links || '',
@@ -480,12 +441,7 @@ const copyToClipboard = (field: string) => {
   }
 };
 
-// 打开链接
-const openLink = (url: string) => {
-  if (url) {
-    window.open(url, '_blank');
-  }
-};
+
 
 
 

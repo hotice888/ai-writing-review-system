@@ -34,6 +34,7 @@ app.use('/api/llm', require('./routes/llm'));
 
 app.use('/api/token-logs', require('./routes/tokenLogs'));
 app.use('/api/statistics', require('./routes/statistics'));
+app.use('/api/field-options', require('./routes/fieldOptions'));
 
 app.get('/api/health', (req, res) => {
   res.json({

@@ -140,7 +140,7 @@ const createProvider = async (req, res) => {
   try {
     await client.query('BEGIN');
     
-    const { name, code, url, openai_base_url, anthropic_base_url, protocol_base_url, description, status, common_links, models } = req.body;
+    const { name, code, openai_base_url, anthropic_base_url, description, status, common_links, models } = req.body;
   
   // 为必需字段提供默认值
   const providerName = name || '';
@@ -158,10 +158,10 @@ const createProvider = async (req, res) => {
     }
     
     const result = await client.query(
-      `INSERT INTO model_providers (name, code, url, openai_base_url, anthropic_base_url, protocol_base_url, description, status, common_links) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+      `INSERT INTO model_providers (name, code, openai_base_url, anthropic_base_url, description, status, common_links) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) 
        RETURNING *`,
-      [providerName, providerCode, url, openai_base_url, anthropic_base_url, protocol_base_url, description, status || 'enabled', common_links]
+      [providerName, providerCode, openai_base_url, anthropic_base_url, description, status || 'enabled', common_links]
     );
     
     const newProvider = result.rows[0];
@@ -200,7 +200,7 @@ const updateProvider = async (req, res) => {
     await client.query('BEGIN');
     
     const { id } = req.params;
-    const { name, code, url, openai_base_url, anthropic_base_url, protocol_base_url, description, status, common_links, models } = req.body;
+    const { name, code, openai_base_url, anthropic_base_url, description, status, common_links, models } = req.body;
     
     console.log('解析后的字段:');
     console.log('- name:', name);
@@ -246,10 +246,10 @@ const updateProvider = async (req, res) => {
     console.log('准备更新数据库');
     const result = await client.query(
       `UPDATE model_providers 
-       SET name = $1, code = $2, url = $3, openai_base_url = $4, anthropic_base_url = $5, protocol_base_url = $6, description = $7, status = $8, common_links = $9, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $10 
+       SET name = $1, code = $2, openai_base_url = $3, anthropic_base_url = $4, description = $5, status = $6, common_links = $7, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $8 
        RETURNING *`,
-      [providerName, providerCode, url, openai_base_url, anthropic_base_url, protocol_base_url, description, status || 'enabled', common_links, id]
+      [providerName, providerCode, openai_base_url, anthropic_base_url, description, status || 'enabled', common_links, id]
     );
     
     console.log('数据库更新完成');
@@ -397,8 +397,7 @@ const getAllProviderModels = async (req, res) => {
           modelId: model.model_code,
           capability: model.memo,
           openaiBaseUrl: provider.openai_base_url || '',
-          anthropicBaseUrl: provider.anthropic_base_url || '',
-          protocolBaseUrl: provider.protocol_base_url || ''
+          anthropicBaseUrl: provider.anthropic_base_url || ''
         });
       });
     }
