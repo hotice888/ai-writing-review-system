@@ -577,7 +577,7 @@ const handleSaveField = async () => {
     }
     
     if (result) {
-      ElMessage.success(isEdit ? '更新成功' : '创建成功');
+      let totalSavedOptions = 0;
       
       if (!isEdit) {
         Object.assign(fieldFormData, result);
@@ -600,8 +600,8 @@ const handleSaveField = async () => {
               status: opt.status,
               display_order: opt.display_order
             });
+            totalSavedOptions++;
           }
-          ElMessage.success(`成功保存 ${tempOptions.length} 个选项`);
         }
         
         loadTabOptions(optionTabs.value[0]);
@@ -615,6 +615,7 @@ const handleSaveField = async () => {
                 status: opt.status,
                 display_order: opt.display_order
               });
+              totalSavedOptions++;
             } else {
               await createFieldOptionItem(currentTab.field_id, {
                 option_text: opt.option_text,
@@ -622,11 +623,25 @@ const handleSaveField = async () => {
                 status: opt.status,
                 display_order: opt.display_order
               });
+              totalSavedOptions++;
             }
           }
-          ElMessage.success('选项保存成功');
         }
         fieldDetailVisible.value = false;
+      }
+      
+      if (isEdit) {
+        if (totalSavedOptions > 0) {
+          ElMessage.success(`保存成功，同时保存了 ${totalSavedOptions} 个选项`);
+        } else {
+          ElMessage.success('保存成功');
+        }
+      } else {
+        if (totalSavedOptions > 0) {
+          ElMessage.success(`创建成功，同时保存了 ${totalSavedOptions} 个选项`);
+        } else {
+          ElMessage.success('创建成功');
+        }
       }
       
       await loadFieldList();

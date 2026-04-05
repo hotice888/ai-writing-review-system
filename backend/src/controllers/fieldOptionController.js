@@ -364,8 +364,8 @@ const createFieldOptionItem = async (req, res) => {
     const { fieldId } = req.params;
     const { option_text, option_value, status = 'enabled', display_order = 0, parent_option_id } = req.body;
     
-    if (!option_text || !option_value) {
-      return res.status(400).json({ code: 400, message: '选项名称和选项Value必填', data: null });
+    if (!option_text) {
+      return res.status(400).json({ code: 400, message: '选项名称必填', data: null });
     }
     
     const fieldCheckResult = await pool.query('SELECT id FROM field_options WHERE id = $1', [fieldId]);
@@ -377,9 +377,20 @@ const createFieldOptionItem = async (req, res) => {
       INSERT INTO field_option_items (field_id, option_text, option_value, status, display_order, parent_option_id)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
-    `, [fieldId, option_text, option_value, status, display_order, parent_option_id || null]);
+    `, [fieldId, option_text, option_value || null, status, display_order, parent_option_id || null]);
     
-    res.json({ code: 200, message: '创建成功', data: result.rows[0] });
+    const newOption = result.rows[0];
+    if (!option_value) {
+      const updateResult = await pool.query(`
+        UPDATE field_option_items 
+        SET option_value = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+        RETURNING *
+      `, [newOption.id, newOption.id]);
+      newOption.option_value = updateResult.rows[0].option_value;
+    }
+    
+    res.json({ code: 200, message: '创建成功', data: newOption });
   } catch (error) {
     console.error('Error creating field option item:', error);
     res.status(500).json({ code: 500, message: '创建选项失败', data: null });
@@ -397,17 +408,19 @@ const updateFieldOptionItem = async (req, res) => {
       return res.status(404).json({ code: 404, message: '选项不存在', data: null });
     }
     
+    const finalOptionValue = option_value === '' ? id : option_value;
+    
     const result = await pool.query(`
       UPDATE field_option_items 
       SET option_text = COALESCE($1, option_text),
-          option_value = COALESCE($2, option_value),
+          option_value = $2,
           status = COALESCE($3, status),
           display_order = COALESCE($4, display_order),
           parent_option_id = $5,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = $6
       RETURNING *
-    `, [option_text, option_value, status, display_order, parent_option_id || null, id]);
+    `, [option_text, finalOptionValue, status, display_order, parent_option_id || null, id]);
     
     res.json({ code: 200, message: '更新成功', data: result.rows[0] });
   } catch (error) {
