@@ -94,9 +94,12 @@ const createFieldOption = async (req, res) => {
       return res.status(400).json({ code: 400, message: '字段名称和字段标识必填', data: null });
     }
     
-    const existingResult = await pool.query('SELECT id FROM field_options WHERE field_code = $1', [field_code]);
+    const existingResult = await pool.query(
+      'SELECT id FROM field_options WHERE field_name = $1 OR field_code = $2', 
+      [field_name, field_code]
+    );
     if (existingResult.rows.length > 0) {
-      return res.status(400).json({ code: 400, message: '字段标识已存在', data: null });
+      return res.status(400).json({ code: 400, message: '字段名称或字段标识已存在', data: null });
     }
     
     let finalFieldLevel = field_level;
@@ -131,10 +134,13 @@ const updateFieldOption = async (req, res) => {
       return res.status(404).json({ code: 404, message: '字段不存在', data: null });
     }
     
-    if (field_code) {
-      const codeCheckResult = await pool.query('SELECT id FROM field_options WHERE field_code = $1 AND id != $2', [field_code, id]);
-      if (codeCheckResult.rows.length > 0) {
-        return res.status(400).json({ code: 400, message: '字段标识已存在', data: null });
+    if (field_name || field_code) {
+      const checkResult = await pool.query(
+        'SELECT id FROM field_options WHERE (field_name = $1 OR field_code = $2) AND id != $3', 
+        [field_name, field_code, id]
+      );
+      if (checkResult.rows.length > 0) {
+        return res.status(400).json({ code: 400, message: '字段名称或字段标识已存在', data: null });
       }
     }
     
