@@ -841,7 +841,7 @@ onMounted(() => {
 
 .form-row {
   display: flex;
-  gap: 20px;
+  gap: 5px;
 }
 
 .form-row .el-form-item {
