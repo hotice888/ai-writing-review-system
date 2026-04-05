@@ -29,18 +29,18 @@
               </template>
             </el-table-column>
             <el-table-column prop="field_code" label="字段标识" width="150" />
-            <el-table-column prop="field_level" label="字段级别" width="100" />
-            <el-table-column prop="parent_field_name" label="上级字段" width="150">
-              <template #default="scope">
-                {{ scope.row.parent_field_name || '-' }}
-              </template>
-            </el-table-column>
-            <el-table-column prop="description" label="描述" show-overflow-tooltip />
             <el-table-column prop="status" label="状态" width="100">
               <template #default="scope">
                 <el-tag :type="scope.row.status === 'enabled' ? 'success' : 'danger'">
                   {{ scope.row.status === 'enabled' ? '启用' : '禁用' }}
                 </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="description" label="描述" show-overflow-tooltip />
+            <el-table-column prop="field_level" label="字段层级" width="100" />
+            <el-table-column prop="parent_field_name" label="上级字段" width="150">
+              <template #default="scope">
+                {{ scope.row.parent_field_name || '-' }}
               </template>
             </el-table-column>
             <el-table-column label="操作" width="220" fixed="right">
@@ -113,9 +113,10 @@
                 {{ scope.row.parent_field_name || '-' }}
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="120" fixed="right">
+            <el-table-column label="操作" width="200" fixed="right">
               <template #default="scope">
-                <el-button size="small" type="primary" @click="handleToggleOptionStatus(scope.row)">切换</el-button>
+                <el-button size="small" type="primary" @click="handleEditFieldById(scope.row.field_id)">编辑</el-button>
+                <el-button size="small" type="warning" @click="handleToggleOptionStatus(scope.row)">切换</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -515,6 +516,34 @@ const handleEditField = async (row) => {
   }
 };
 
+const handleEditFieldById = async (fieldId) => {
+  try {
+    const result = await getFieldOptionById(fieldId);
+    if (result) {
+      fieldDialogTitle.value = '编辑字段';
+      Object.assign(fieldFormData, result);
+      
+      optionTabs.value = [{
+        id: `tab-${result.id}`,
+        field_id: result.id,
+        field_level: result.field_level,
+        options: [],
+        selectedOptions: [],
+        loading: false
+      }];
+      optionActiveTab.value = optionTabs.value[0].id;
+      
+      loadTabOptions(optionTabs.value[0]);
+      
+      activeTab.value = 'fields';
+      fieldDetailVisible.value = true;
+    }
+  } catch (error) {
+    console.error('获取字段详情失败:', error);
+    ElMessage.error('获取字段详情失败');
+  }
+};
+
 const handleSaveField = async () => {
   try {
     await fieldFormRef.value?.validate();
@@ -559,10 +588,14 @@ const handleSaveField = async () => {
         }
         
         loadTabOptions(optionTabs.value[0]);
+        loadFieldList();
+        loadAllFields();
+        loadOptionList();
       } else {
         fieldDetailVisible.value = false;
         loadFieldList();
         loadAllFields();
+        loadOptionList();
       }
     }
   } catch (error) {
@@ -678,6 +711,7 @@ const handleSaveOptionEdit = async (row, tab) => {
     }
     row.editing = false;
     ElMessage.success('保存成功');
+    loadOptionList();
   } catch (error) {
     console.error('保存选项失败:', error);
     ElMessage.error('保存选项失败');
