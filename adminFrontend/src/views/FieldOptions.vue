@@ -588,18 +588,16 @@ const handleSaveField = async () => {
         }
         
         loadTabOptions(optionTabs.value[0]);
-        loadFieldList();
-        loadAllFields();
-        loadOptionList();
       } else {
         fieldDetailVisible.value = false;
-        loadFieldList();
-        loadAllFields();
-        loadOptionList();
       }
+      
+      await loadFieldList();
+      await loadAllFields();
+      await loadOptionList();
     }
   } catch (error) {
-    if (error !== false) {
+    if (error !== false && typeof error !== 'boolean') {
       console.error('保存字段失败:', error);
       ElMessage.error('保存字段失败');
     }
