@@ -131,7 +131,6 @@
     >
       <div class="field-detail-layout">
         <div class="field-basic-info">
-          <div class="section-title">基础信息</div>
           <el-form
             :model="fieldFormData"
             :rules="fieldFormRules"
@@ -150,14 +149,6 @@
                 <el-radio label="disabled">禁用</el-radio>
               </el-radio-group>
             </el-form-item>
-            <el-form-item label="上级字段" prop="parent_field_id">
-              <el-select v-model="fieldFormData.parent_field_id" placeholder="请选择上级字段" clearable style="width: 100%;" @change="handleParentFieldChange">
-                <el-option v-for="field in parentFieldOptions" :key="field.id" :label="field.field_name" :value="field.id" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="字段级别" prop="field_level">
-              <el-input-number v-model="fieldFormData.field_level" :min="1" style="width: 100%;" />
-            </el-form-item>
             <el-form-item label="描述" prop="description">
               <el-input v-model="fieldFormData.description" type="textarea" :rows="5" placeholder="请输入描述" />
             </el-form-item>
@@ -165,7 +156,6 @@
         </div>
         
         <div class="field-options-setting">
-          <div class="section-title">选项设置</div>
           <div class="options-setting-area">
             <div class="options-tabs-wrapper">
               <el-tabs v-model="optionActiveTab" type="card" class="options-tabs">
@@ -180,6 +170,12 @@
                       <el-button type="primary" size="small" @click="handleAddOption(tab)" icon="Plus">添加选项</el-button>
                       <el-button type="warning" size="small" @click="handleRefreshOrder(tab)" icon="Refresh">刷新序号</el-button>
                       <el-button type="danger" size="small" @click="handleBatchDeleteOptions(tab)" icon="Delete" :disabled="!getSelectedOptions(tab).length">批量删除</el-button>
+                      <div class="parent-field-wrapper">
+                        <span class="parent-field-label">上级字段：</span>
+                        <el-select v-model="fieldFormData.parent_field_id" placeholder="请选择上级字段" clearable class="parent-field-select" @change="handleParentFieldChange">
+                          <el-option v-for="field in parentFieldOptions" :key="field.id" :label="field.field_name" :value="field.id" />
+                        </el-select>
+                      </div>
                     </div>
                     
                     <el-table 
@@ -831,7 +827,7 @@ onMounted(() => {
 .field-detail-layout {
   display: flex;
   gap: 20px;
-  padding: 20px;
+  padding: 10px;
 }
 
 .field-basic-info {
@@ -882,5 +878,24 @@ onMounted(() => {
   display: flex;
   gap: 10px;
   margin-bottom: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.parent-field-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.parent-field-label {
+  font-size: 14px;
+  color: #606266;
+  white-space: nowrap;
+}
+
+.parent-field-select {
+  width: 200px;
 }
 </style>
