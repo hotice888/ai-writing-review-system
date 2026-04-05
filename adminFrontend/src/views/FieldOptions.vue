@@ -46,10 +46,11 @@
             <el-table-column label="操作" width="220" fixed="right">
               <template #default="scope">
                 <div style="display: flex; gap: 8px;">
+                                    <el-button size="small" type="primary" @click="handleEditField(scope.row)">编辑</el-button>
                   <el-button size="small" :type="scope.row.status === 'enabled' ? 'warning' : 'success'" @click="handleToggleFieldStatus(scope.row)">
                     {{ scope.row.status === 'enabled' ? '禁用' : '启用' }}
                   </el-button>
-                  <el-button size="small" type="primary" @click="handleEditField(scope.row)">编辑</el-button>
+
                   <el-button size="small" type="danger" @click="handleDeleteField(scope.row.id)">删除</el-button>
                 </div>
               </template>
@@ -128,14 +129,14 @@
       :close-on-click-modal="false"
       class="field-detail-dialog"
     >
-      <el-tabs v-model="detailActiveTab" type="border-card">
-        <el-tab-pane label="基础信息" name="basic">
+      <div class="field-detail-layout">
+        <div class="field-basic-info">
+          <div class="section-title">基础信息</div>
           <el-form
             :model="fieldFormData"
             :rules="fieldFormRules"
             ref="fieldFormRef"
             label-width="120px"
-            style="padding: 20px;"
           >
             <el-form-item label="字段名称" prop="field_name" required>
               <el-input v-model="fieldFormData.field_name" placeholder="请输入字段名称" />
@@ -158,12 +159,13 @@
               <el-input-number v-model="fieldFormData.field_level" :min="1" style="width: 100%;" />
             </el-form-item>
             <el-form-item label="描述" prop="description">
-              <el-input v-model="fieldFormData.description" type="textarea" :rows="3" placeholder="请输入描述" />
+              <el-input v-model="fieldFormData.description" type="textarea" :rows="5" placeholder="请输入描述" />
             </el-form-item>
           </el-form>
-        </el-tab-pane>
+        </div>
         
-        <el-tab-pane label="选项设置" name="options">
+        <div class="field-options-setting">
+          <div class="section-title">选项设置</div>
           <div class="options-setting-area">
             <div class="options-tabs-wrapper">
               <el-tabs v-model="optionActiveTab" type="card" class="options-tabs">
@@ -247,8 +249,8 @@
               </div>
             </div>
           </div>
-        </el-tab-pane>
-      </el-tabs>
+        </div>
+      </div>
       
       <template #footer>
         <el-button @click="fieldDetailVisible = false">取消</el-button>
@@ -280,7 +282,6 @@ import {
 } from '../api/admin';
 
 const activeTab = ref('fields');
-const detailActiveTab = ref('basic');
 const optionActiveTab = ref('');
 
 const fieldList = ref([]);
@@ -469,7 +470,6 @@ const handleAddField = () => {
   }];
   optionActiveTab.value = optionTabs.value[0].id;
   
-  detailActiveTab.value = 'basic';
   fieldDetailVisible.value = true;
 };
 
@@ -492,7 +492,6 @@ const handleEditField = async (row) => {
       
       loadTabOptions(optionTabs.value[0]);
       
-      detailActiveTab.value = 'basic';
       fieldDetailVisible.value = true;
     }
   } catch (error) {
@@ -531,8 +530,6 @@ const handleSaveField = async () => {
           loading: false
         }];
         optionActiveTab.value = optionTabs.value[0].id;
-        
-        detailActiveTab.value = 'options';
         
         if (tempOptions.length > 0) {
           for (const opt of tempOptions) {
@@ -831,8 +828,35 @@ onMounted(() => {
   padding: 0;
 }
 
-.options-setting-area {
+.field-detail-layout {
+  display: flex;
+  gap: 20px;
   padding: 20px;
+}
+
+.field-basic-info {
+  width: 400px;
+  flex-shrink: 0;
+  border-right: 1px solid #e4e7ed;
+  padding-right: 20px;
+}
+
+.field-options-setting {
+  flex: 1;
+  min-width: 0;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #409eff;
+}
+
+.options-setting-area {
+  padding: 0;
 }
 
 .options-tabs-wrapper {
