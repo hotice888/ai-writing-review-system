@@ -135,22 +135,24 @@
             :model="fieldFormData"
             :rules="fieldFormRules"
             ref="fieldFormRef"
-            label-width="120px"
+            label-width="100px"
           >
-            <el-form-item label="字段名称" prop="field_name" required>
-              <el-input v-model="fieldFormData.field_name" placeholder="请输入字段名称" />
-            </el-form-item>
-            <el-form-item label="字段标识" prop="field_code" required>
-              <el-input v-model="fieldFormData.field_code" placeholder="请输入字段标识" :disabled="!!fieldFormData.id" />
-            </el-form-item>
-            <el-form-item label="状态" prop="status">
-              <el-radio-group v-model="fieldFormData.status">
-                <el-radio label="enabled">启用</el-radio>
-                <el-radio label="disabled">禁用</el-radio>
-              </el-radio-group>
-            </el-form-item>
+            <div class="form-row">
+              <el-form-item label="字段名称" prop="field_name" required>
+                <el-input v-model="fieldFormData.field_name" placeholder="请输入字段名称" />
+              </el-form-item>
+              <el-form-item label="字段标识" prop="field_code" required>
+                <el-input v-model="fieldFormData.field_code" placeholder="请输入字段标识" :disabled="!!fieldFormData.id" />
+              </el-form-item>
+              <el-form-item label="状态" prop="status">
+                <el-select v-model="fieldFormData.status" style="width: 100%;">
+                  <el-option label="启用" value="enabled" />
+                  <el-option label="禁用" value="disabled" />
+                </el-select>
+              </el-form-item>
+            </div>
             <el-form-item label="描述" prop="description">
-              <el-input v-model="fieldFormData.description" type="textarea" :rows="5" placeholder="请输入描述" />
+              <el-input v-model="fieldFormData.description" type="textarea" :rows="3" placeholder="请输入描述" />
             </el-form-item>
           </el-form>
         </div>
@@ -826,29 +828,30 @@ onMounted(() => {
 
 .field-detail-layout {
   display: flex;
+  flex-direction: column;
   gap: 20px;
-  padding: 10px;
+  padding: 20px;
 }
 
 .field-basic-info {
-  width: 400px;
-  flex-shrink: 0;
-  border-right: 1px solid #e4e7ed;
-  padding-right: 20px;
+  width: 100%;
+  border-bottom: 1px solid #e4e7ed;
+  padding-bottom: 20px;
+}
+
+.form-row {
+  display: flex;
+  gap: 20px;
+}
+
+.form-row .el-form-item {
+  flex: 1;
+  margin-bottom: 0;
 }
 
 .field-options-setting {
   flex: 1;
   min-width: 0;
-}
-
-.section-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #303133;
-  margin-bottom: 20px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid #409eff;
 }
 
 .options-setting-area {
