@@ -829,19 +829,18 @@ onMounted(() => {
 .field-detail-layout {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 20px;
+
+  padding: 5px;
 }
 
 .field-basic-info {
   width: 100%;
-  border-bottom: 1px solid #e4e7ed;
-  padding-bottom: 20px;
+
 }
 
 .form-row {
   display: flex;
-  gap: 5px;
+  padding: 10px 0;
 }
 
 .form-row .el-form-item {
@@ -862,6 +861,7 @@ onMounted(() => {
   position: relative;
   display: flex;
   align-items: flex-start;
+  gap: 10px;
 }
 
 .options-tabs {
@@ -869,8 +869,8 @@ onMounted(() => {
 }
 
 .add-child-field-btn {
-  margin-left: 10px;
   margin-top: 5px;
+  flex-shrink: 0;
 }
 
 .tab-content {
