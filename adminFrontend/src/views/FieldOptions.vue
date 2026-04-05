@@ -19,6 +19,8 @@
               <el-option label="禁用" value="disabled" />
             </el-select>
             <el-button style="margin-left: 10px;" @click="loadFieldList" icon="Refresh">刷新</el-button>
+            <el-button type="success" style="margin-left: 10px;" @click="handleExport" icon="Download">导出</el-button>
+            <el-button type="warning" style="margin-left: 10px;" @click="importDialogVisible = true" icon="Upload">导入</el-button>
           </div>
           
           <el-table :data="fieldList" style="width: 100%; margin-top: 10px;" border v-loading="fieldLoading">
@@ -113,10 +115,11 @@
                 {{ scope.row.parent_field_name || '-' }}
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="200" fixed="right">
+            <el-table-column label="操作" width="280" fixed="right">
               <template #default="scope">
                 <el-button size="small" type="primary" @click="handleEditFieldById(scope.row.field_id)">编辑</el-button>
                 <el-button size="small" type="warning" @click="handleToggleOptionStatus(scope.row)">切换</el-button>
+                <el-button size="small" type="danger" @click="handleDeleteOptionFromList(scope.row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -131,6 +134,36 @@
             @current-change="loadOptionList"
             style="margin-top: 15px; justify-content: flex-end;"
           />
+        </el-tab-pane>
+        
+        <el-tab-pane label="字段树" name="tree">
+          <div class="field-tree-layout">
+            <div class="field-tree-left">
+              <div class="tree-toolbar">
+                <el-button type="primary" size="small" @click="loadAllFields" icon="Refresh">刷新</el-button>
+              </div>
+              <el-tree
+                ref="fieldTreeRef"
+                :data="fieldTreeData"
+                :props="fieldTreeProps"
+                node-key="id"
+                :highlight-current="true"
+                :expand-on-click-node="false"
+                :default-expand-all="true"
+                @node-click="handleTreeNodeClick"
+              >
+                <template #default="{ node, data }">
+                  <span class="tree-node-content">
+                    <span class="tree-node-label">{{ node.label }}</span>
+                    <span class="tree-node-code">({{ data.field_code }})</span>
+                    <span class="tree-node-level">
+                      <el-tag size="small" type="info">{{ getFieldLevelText(data.field_level) }}</el-tag>
+                    </span>
+                  </span>
+                </template>
+              </el-tree>
+            </div>
+          </div>
         </el-tab-pane>
       </el-tabs>
     </el-card>
@@ -184,27 +217,75 @@
                   :name="tab.id"
                 >
                   <div class="tab-content">
+                    <!-- 子字段信息显示区域 -->
+                    <div v-if="tab.isChildField" class="child-field-info">
+                      <div class="child-field-form">
+                        <div class="form-row">
+                          <el-form-item label="子字段名称" required>
+                            <el-input v-model="tab.field_name" placeholder="请输入子字段名称" :disabled="tab.isExistingChildField" />
+                          </el-form-item>
+                          <el-form-item label="子字段标识" required>
+                            <el-input v-model="tab.field_code" placeholder="请输入子字段标识" :disabled="!!tab.field_id || tab.isExistingChildField" />
+                          </el-form-item>
+                          <el-form-item label="状态">
+                            <el-select v-model="tab.status" style="width: 100%;" :disabled="tab.isExistingChildField">
+                              <el-option label="启用" value="enabled" />
+                              <el-option label="禁用" value="disabled" />
+                            </el-select>
+                          </el-form-item>
+                        </div>
+                      </div>
+                    </div>
                     <div class="tab-toolbar">
                       <el-button type="primary" size="small" @click="handleAddOption(tab)" icon="Plus">添加选项</el-button>
                       <el-button type="warning" size="small" @click="handleRefreshOrder(tab)" icon="Refresh">刷新序号</el-button>
                       <el-button type="danger" size="small" @click="handleBatchDeleteOptions(tab)" icon="Delete" :disabled="!getSelectedOptions(tab).length">批量删除</el-button>
                       <div class="parent-field-wrapper">
                         <span class="parent-field-label">上级字段：</span>
-                        <el-select v-model="fieldFormData.parent_field_id" placeholder="请选择上级字段" clearable class="parent-field-select" @change="handleParentFieldChange">
+                        <el-select 
+                          v-if="!tab.isChildField" 
+                          v-model="fieldFormData.parent_field_id" 
+                          placeholder="请选择上级字段" 
+                          clearable 
+                          class="parent-field-select" 
+                          @change="handleParentFieldChange"
+                        >
                           <el-option v-for="field in parentFieldOptions" :key="field.id" :label="field.field_name" :value="field.id" />
                         </el-select>
+                        <el-input 
+                          v-else 
+                          :value="getParentFieldName(tab.parent_field_id)" 
+                          disabled 
+                          class="parent-field-select"
+                        />
                       </div>
                     </div>
                     
                     <el-table 
-                      :data="getTabOptions(tab)" 
+                      :data="tab.options" 
                       style="width: 100%; margin-top: 10px;" 
                       border 
                       v-loading="tab.loading"
                       @selection-change="(val) => handleOptionSelectionChange(tab, val)"
+                      row-key="id"
+                      :row-class-name="(row) => row._deleted ? 'hidden-row' : ''"
                     >
-                      <el-table-column type="selection" width="55" />
-                      <el-table-column type="index" label="序号" width="60" />
+                      <el-table-column type="selection" width="55" align="center" />
+                      
+                      <el-table-column label="序号" width="80" align="center">
+                        <template #default="scope">
+                          <div 
+                            class="drag-handle"
+                            draggable="true"
+                            @dragstart="handleDragStart($event, scope.$index, tab)"
+                            @dragover.prevent="handleDragOver($event, scope.$index, tab)"
+                            @drop="handleDrop($event, scope.$index, tab)"
+                            @dragend="handleDragEnd(tab)"
+                          >
+                            {{ getTabOptions(tab).findIndex(o => o.id === scope.row.id) + 1 }}
+                          </div>
+                        </template>
+                      </el-table-column>
                       <el-table-column prop="option_text" label="选项名称" min-width="150">
                         <template #default="scope">
                           <el-input
@@ -224,7 +305,36 @@
                           />
                         </template>
                       </el-table-column>
-                      <el-table-column prop="display_order" label="显示序号" width="100" />
+                                            <el-table-column v-if="fieldFormData.parent_field_id" label="上级选项" min-width="150">
+                        <template #default="scope">
+                          <el-select 
+                            v-model="scope.row.parent_option_id" 
+                            size="small" 
+                            style="width: 100%;"
+                            clearable
+                            placeholder="请选择上级选项"
+                          >
+                            <el-option 
+                              v-for="opt in parentFieldOptionsList" 
+                              :key="opt.id" 
+                              :label="opt.option_text" 
+                              :value="opt.id" 
+                            />
+                          </el-select>
+                        </template>
+                      </el-table-column>
+                      <el-table-column prop="display_order" label="显示序号" width="100">
+                        <template #default="scope">
+                          <el-input-number
+                            v-model="scope.row.display_order"
+                            :min="1"
+                            :step="1"
+                            size="small"
+                            style="width: 100%;"
+                            controls-position="right"
+                          />
+                        </template>
+                      </el-table-column>
                       <el-table-column prop="status" label="状态" width="120">
                         <template #default="scope">
                           <el-select 
@@ -258,13 +368,42 @@
         <el-button type="primary" @click="handleSaveField">保存</el-button>
       </template>
     </el-dialog>
+    
+    <el-dialog v-model="importDialogVisible" title="导入字段和选项" width="500px">
+      <div style="margin-bottom: 15px;">
+        <span>请先下载导入模板：</span>
+        <el-link type="primary" @click="handleDownloadTemplate">点击下载模板</el-link>
+      </div>
+      <el-upload
+        ref="importFileRef"
+        :auto-upload="false"
+        :show-file-list="true"
+        :on-change="handleFileChange"
+        accept=".xlsx,.xls"
+        :limit="1"
+      >
+        <el-button type="primary">选择文件</el-button>
+        <template #tip>
+          <div class="el-upload__tip">
+            只能上传 .xlsx 或 .xls 文件
+          </div>
+        </template>
+      </el-upload>
+      
+      <template #footer>
+        <el-button @click="importDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleImport" :loading="importing">
+          导入
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, Edit, Delete, Refresh } from '@element-plus/icons-vue';
+import { Plus, Edit, Delete, Refresh, Download, Upload, Document } from '@element-plus/icons-vue';
 import {
   getFieldOptions,
   getFieldOptionById,
@@ -302,11 +441,76 @@ const optionTotal = ref(0);
 const optionSearchKeyword = ref('');
 const optionStatusFilter = ref('');
 const optionFieldKeyword = ref('');
+const selectedOptionsFromList = ref([]);
+const parentFieldOptionsList = ref([]);
 const allFields = ref([]);
+
+const fieldTreeRef = ref(null);
+const selectedTreeField = ref(null);
+const fieldTreeProps = {
+  label: 'field_name',
+  children: 'children'
+};
+
+const importDialogVisible = ref(false);
+const importFileRef = ref(null);
+const importFile = ref(null);
+const importing = ref(false);
+
+const fieldTreeData = computed(() => {
+  const hasChildren = (fieldId) => {
+    return allFields.value.some(field => field.parent_field_id === fieldId);
+  };
+
+  const shouldShowField = (field) => {
+    const hasParent = !!field.parent_field_id;
+    const hasChild = hasChildren(field.id);
+    return hasParent || hasChild;
+  };
+
+  const collectParentIds = (fieldId, parentIdsSet) => {
+    const field = allFields.value.find(f => f.id === fieldId);
+    if (field && field.parent_field_id) {
+      parentIdsSet.add(field.parent_field_id);
+      collectParentIds(field.parent_field_id, parentIdsSet);
+    }
+  };
+
+  const fieldsToShow = new Set();
+  const parentIdsToShow = new Set();
+
+  allFields.value.forEach(field => {
+    if (shouldShowField(field)) {
+      fieldsToShow.add(field.id);
+      if (field.parent_field_id) {
+        collectParentIds(field.id, parentIdsToShow);
+      }
+    }
+  });
+
+  parentIdsToShow.forEach(id => fieldsToShow.add(id));
+
+  const buildTree = (parentId = null) => {
+    return allFields.value
+      .filter(field => field.parent_field_id === parentId)
+      .filter(field => fieldsToShow.has(field.id))
+      .map(field => ({
+        ...field,
+        children: buildTree(field.id)
+      }));
+  };
+
+  return buildTree();
+});
 
 const fieldDetailVisible = ref(false);
 const fieldDialogTitle = ref('添加字段');
 const fieldFormRef = ref(null);
+const originalParentFieldId = ref(null);
+const currentParentFieldId = ref(null);
+
+const dragIndex = ref(null);
+const dragTab = ref(null);
 const fieldFormData = reactive({
   id: '',
   field_name: '',
@@ -326,20 +530,61 @@ const optionTabs = ref([]);
 const currentOptionTab = ref(null);
 
 const parentFieldOptions = computed(() => {
-  return allFields.value.filter(f => !fieldFormData.id || f.id !== fieldFormData.id);
+  if (!fieldFormData.id) {
+    return allFields.value;
+  }
+  
+  // 获取当前字段的所有子字段和子孙字段的 ID
+  const excludedIds = getAllChildFieldIds(fieldFormData.id);
+  // 也要排除字段自身
+  excludedIds.add(fieldFormData.id);
+  
+  return allFields.value.filter(f => !excludedIds.has(f.id));
 });
 
 const getTabLabel = (tab) => {
+  if (!tab.isChildField) {
+    const levelNames = ['', '一级', '二级', '三级', '四级', '五级'];
+    return levelNames[tab.field_level] || `${tab.field_level}级`;
+  } else {
+    return tab.field_name || `子字段`;
+  }
+};
+
+const getParentFieldName = (parentFieldId) => {
+  if (!parentFieldId) return '';
+  const parentField = allFields.value.find(f => f.id === parentFieldId);
+  return parentField ? parentField.field_name : '';
+};
+
+const getFieldLevelText = (level) => {
   const levelNames = ['', '一级', '二级', '三级', '四级', '五级'];
-  return levelNames[tab.field_level] || `${tab.field_level}级`;
+  return levelNames[level] || `${level}级`;
+};
+
+const handleTreeNodeClick = (data) => {
+  selectedTreeField.value = data;
+  handleEditFieldById(data.id);
 };
 
 const getTabOptions = (tab) => {
-  return tab.options || [];
+  return (tab.options || []).filter(opt => !opt._deleted);
 };
 
-const getSelectedOptions = (tab) => {
-  return tab.selectedOptions || [];
+// 获取字段及其所有子字段和子孙字段的 ID
+const getAllChildFieldIds = (fieldId) => {
+  const childIds = new Set();
+  
+  const addChildIds = (parentId) => {
+    const children = allFields.value.filter(f => f.parent_field_id === parentId);
+    for (const child of children) {
+      childIds.add(child.id);
+      addChildIds(child.id);
+    }
+  };
+  
+  addChildIds(fieldId);
+  return childIds;
 };
 
 const loadFieldList = async () => {
@@ -433,8 +678,8 @@ watch([optionSearchKeyword, optionFieldKeyword, optionStatusFilter], () => {
   loadOptionList();
 });
 
-watch(activeTab, (newTab) => {
-  if (newTab === 'options' && needRefreshOptionList.value) {
+watch([activeTab, needRefreshOptionList], ([newTab, refresh]) => {
+  if (newTab === 'options' && refresh) {
     loadOptionList();
     needRefreshOptionList.value = false;
   }
@@ -445,13 +690,23 @@ const loadTabOptions = async (tab) => {
     tab.loading = true;
     const result = await getFieldOptionItems(tab.field_id);
     if (result) {
+      let options = [];
       if (Array.isArray(result)) {
-        tab.options = result;
+        options = result;
       } else if (result.list) {
-        tab.options = result.list;
+        options = result.list;
       } else {
-        tab.options = [];
+        options = [];
       }
+      tab.options = options.map(opt => {
+        // 确保option_value不会被赋值为选项ID
+        if (opt.option_value === opt.id) {
+          opt.option_value = '';
+        }
+        return { ...opt, _deleted: false };
+      });
+      // 初始化删除选项ID集合
+      tab.deletedOptionIds = new Set();
     }
   } catch (error) {
     console.error('加载选项失败:', error);
@@ -472,15 +727,17 @@ const handleAddField = () => {
     field_level: 1,
     description: ''
   });
+  originalParentFieldId.value = null;
+  currentParentFieldId.value = null;
   
   optionTabs.value = [{
     id: 'tab-temp',
     field_id: null,
     field_level: 1,
     options: [],
-    selectedOptions: [],
     loading: false,
-    isTemp: true
+    isTemp: true,
+    selectedOptions: []
   }];
   optionActiveTab.value = optionTabs.value[0].id;
   
@@ -493,18 +750,76 @@ const handleEditField = async (row) => {
     if (result) {
       fieldDialogTitle.value = '编辑字段';
       Object.assign(fieldFormData, result);
+      originalParentFieldId.value = result.parent_field_id;
+      currentParentFieldId.value = result.parent_field_id;
       
+      if (result.parent_field_id) {
+        try {
+          const optionsResult = await getFieldOptionItems(result.parent_field_id);
+          if (optionsResult) {
+            let options = [];
+            if (Array.isArray(optionsResult)) {
+              options = optionsResult;
+            } else if (optionsResult.list) {
+              options = optionsResult.list;
+            } else {
+              options = [];
+            }
+            parentFieldOptionsList.value = options.filter(opt => opt.status === 'enabled');
+          }
+        } catch (error) {
+          console.error('加载上级字段选项失败:', error);
+          parentFieldOptionsList.value = [];
+        }
+      } else {
+        parentFieldOptionsList.value = [];
+      }
+      
+      // 初始化 tabs 数组，第一个是当前字段
       optionTabs.value = [{
         id: `tab-${result.id}`,
         field_id: result.id,
         field_level: result.field_level,
         options: [],
+        loading: false,
         selectedOptions: [],
-        loading: false
+        isChildField: false,
+        isExistingChildField: false
       }];
+      
+      // 查找并加载当前字段的所有子字段
+      if (allFields.value.length > 0) {
+        const childFields = allFields.value.filter(f => f.parent_field_id === result.id);
+        
+        for (const childField of childFields) {
+          const childTab = {
+            id: `tab-${childField.id}`,
+            field_id: childField.id,
+            parent_field_id: childField.parent_field_id,
+            field_level: childField.field_level,
+            field_name: childField.field_name,
+            field_code: childField.field_code,
+            status: childField.status,
+            description: childField.description,
+            options: [],
+            loading: false,
+            isChildField: true,
+            isExistingChildField: true,
+            selectedOptions: [],
+            deletedOptionIds: new Set()
+          };
+          
+          optionTabs.value.push(childTab);
+          
+          // 加载子字段的选项
+          await loadTabOptions(childTab);
+        }
+      }
+      
       optionActiveTab.value = optionTabs.value[0].id;
       
-      loadTabOptions(optionTabs.value[0]);
+      // 加载主字段的选项
+      await loadTabOptions(optionTabs.value[0]);
       
       fieldDetailVisible.value = true;
     }
@@ -520,26 +835,167 @@ const handleEditFieldById = async (fieldId) => {
     if (result) {
       fieldDialogTitle.value = '编辑字段';
       Object.assign(fieldFormData, result);
+      originalParentFieldId.value = result.parent_field_id;
+      currentParentFieldId.value = result.parent_field_id;
       
+      if (result.parent_field_id) {
+        try {
+          const optionsResult = await getFieldOptionItems(result.parent_field_id);
+          if (optionsResult) {
+            let options = [];
+            if (Array.isArray(optionsResult)) {
+              options = optionsResult;
+            } else if (optionsResult.list) {
+              options = optionsResult.list;
+            } else {
+              options = [];
+            }
+            parentFieldOptionsList.value = options.filter(opt => opt.status === 'enabled');
+          }
+        } catch (error) {
+          console.error('加载上级字段选项失败:', error);
+          parentFieldOptionsList.value = [];
+        }
+      } else {
+        parentFieldOptionsList.value = [];
+      }
+      
+      // 初始化 tabs 数组，第一个是当前字段
       optionTabs.value = [{
         id: `tab-${result.id}`,
         field_id: result.id,
         field_level: result.field_level,
         options: [],
+        loading: false,
         selectedOptions: [],
-        loading: false
+        isChildField: false,
+        isExistingChildField: false
       }];
+      
+      // 查找并加载当前字段的所有子字段
+      if (allFields.value.length > 0) {
+        const childFields = allFields.value.filter(f => f.parent_field_id === result.id);
+        
+        for (const childField of childFields) {
+          const childTab = {
+            id: `tab-${childField.id}`,
+            field_id: childField.id,
+            parent_field_id: childField.parent_field_id,
+            field_level: childField.field_level,
+            field_name: childField.field_name,
+            field_code: childField.field_code,
+            status: childField.status,
+            description: childField.description,
+            options: [],
+            loading: false,
+            isChildField: true,
+            isExistingChildField: true,
+            selectedOptions: [],
+            deletedOptionIds: new Set()
+          };
+          
+          optionTabs.value.push(childTab);
+          
+          // 加载子字段的选项
+          await loadTabOptions(childTab);
+        }
+      }
+      
       optionActiveTab.value = optionTabs.value[0].id;
       
-      loadTabOptions(optionTabs.value[0]);
+      // 加载主字段的选项
+      await loadTabOptions(optionTabs.value[0]);
       
-      activeTab.value = 'fields';
       fieldDetailVisible.value = true;
     }
   } catch (error) {
     console.error('获取字段详情失败:', error);
     ElMessage.error('获取字段详情失败');
   }
+};
+
+// 辅助函数：保存单个字段及其选项
+const saveFieldAndOptions = async (fieldData, tab, isEdit, originalParentFieldIdVal, saveFieldOnly = false, saveOptionsOnly = false) => {
+  let fieldResult;
+  let totalSavedOptions = 0;
+  let totalDeletedOptions = 0;
+  
+  if (!saveOptionsOnly) {
+    if (isEdit) {
+      fieldResult = await updateFieldOption(fieldData.id, fieldData);
+    } else {
+      fieldResult = await createFieldOption(fieldData);
+    }
+    
+    if (fieldResult && !isEdit) {
+      Object.assign(fieldData, fieldResult);
+      tab.field_id = fieldResult.id;
+      tab.id = `tab-${fieldResult.id}`;
+    }
+  }
+  
+  if (!saveFieldOnly) {
+    const currentFieldId = saveOptionsOnly ? tab.field_id : (fieldResult ? fieldResult.id : fieldData.id);
+    
+    if (currentFieldId) {
+      const deletedOptionIds = Array.from(tab.deletedOptionIds || []);
+      
+      for (const optionId of deletedOptionIds) {
+        try {
+          await deleteFieldOptionItem(optionId);
+          totalDeletedOptions++;
+        } catch (err) {
+          console.error('删除选项失败:', optionId, err);
+          throw err;
+        }
+      }
+      
+      const optionsToProcess = tab.options || [];
+      
+      let parentOptionIdToSave = null;
+      if (!saveOptionsOnly && originalParentFieldIdVal && fieldData.parent_field_id && originalParentFieldIdVal !== fieldData.parent_field_id) {
+        parentOptionIdToSave = null;
+      } else if (!saveOptionsOnly && !fieldData.parent_field_id) {
+        parentOptionIdToSave = null;
+      }
+      
+      for (const opt of optionsToProcess) {
+        if (opt._deleted) continue;
+        
+        const finalParentOptionId = parentOptionIdToSave !== null ? parentOptionIdToSave : opt.parent_option_id;
+        
+        const optionData = {
+          option_text: opt.option_text,
+          option_value: opt.option_value === opt.id ? '' : opt.option_value,
+          status: opt.status,
+          display_order: opt.display_order,
+          parent_option_id: finalParentOptionId
+        };
+        
+        const isTempId = opt.id && opt.id.toString().startsWith('temp-');
+        
+        if (opt.id && !isTempId) {
+          try {
+            await updateFieldOptionItem(opt.id, optionData);
+            totalSavedOptions++;
+          } catch (err) {
+            console.error('更新选项失败:', opt.id, err);
+            throw err;
+          }
+        } else {
+          try {
+            await createFieldOptionItem(currentFieldId, optionData);
+            totalSavedOptions++;
+          } catch (err) {
+            console.error('创建选项失败:', optionData, err);
+            throw err;
+          }
+        }
+      }
+    }
+  }
+  
+  return { fieldResult, totalSavedOptions, totalDeletedOptions };
 };
 
 const handleSaveField = async () => {
@@ -549,9 +1005,14 @@ const handleSaveField = async () => {
     const currentTab = optionTabs.value.find(tab => tab.id === optionActiveTab.value) || optionTabs.value[0];
     
     if (currentTab && currentTab.options.length > 0) {
+      const activeOptions = currentTab.options.filter(opt => !opt._deleted);
+      activeOptions.forEach((opt, index) => {
+        opt.display_order = 1 + index * 5;
+      });
+      
       const optionTexts = [];
-      for (let i = 0; i < currentTab.options.length; i++) {
-        const opt = currentTab.options[i];
+      for (let i = 0; i < activeOptions.length; i++) {
+        const opt = activeOptions[i];
         if (!opt.option_text || !opt.option_text.trim()) {
           ElMessage.warning(`第 ${i + 1} 个选项：选项名称必填`);
           return;
@@ -565,110 +1026,123 @@ const handleSaveField = async () => {
       }
     }
     
-    let result;
     const isEdit = !!fieldFormData.id;
-    const tempTab = optionTabs.value.find(tab => tab.isTemp);
-    const tempOptions = tempTab ? tempTab.options.filter(opt => !opt.id) : [];
+    const mainTab = optionTabs.value.find(tab => !tab.isChildField);
+    const childTabs = optionTabs.value.filter(tab => tab.isChildField);
     
-    if (isEdit) {
-      result = await updateFieldOption(fieldFormData.id, fieldFormData);
-    } else {
-      result = await createFieldOption(fieldFormData);
+    let grandTotalSavedOptions = 0;
+    let grandTotalDeletedOptions = 0;
+    let mainResult;
+    
+    if (mainTab) {
+      const result = await saveFieldAndOptions(fieldFormData, mainTab, isEdit, originalParentFieldId.value);
+      mainResult = result.fieldResult;
+      grandTotalSavedOptions += result.totalSavedOptions;
+      grandTotalDeletedOptions += result.totalDeletedOptions;
+      
+      if (mainResult && !isEdit) {
+        Object.assign(fieldFormData, mainResult);
+      }
     }
     
-    if (result) {
-      let totalSavedOptions = 0;
-      
-      if (!isEdit) {
-        Object.assign(fieldFormData, result);
-        
-        optionTabs.value = [{
-          id: `tab-${result.id}`,
-          field_id: result.id,
-          field_level: result.field_level,
-          options: [],
-          selectedOptions: [],
-          loading: false
-        }];
-        optionActiveTab.value = optionTabs.value[0].id;
-        
-        if (tempOptions.length > 0) {
-          for (const opt of tempOptions) {
-            await createFieldOptionItem(result.id, {
-              option_text: opt.option_text,
-              option_value: opt.option_value,
-              status: opt.status,
-              display_order: opt.display_order
-            });
-            totalSavedOptions++;
-          }
+    for (const childTab of childTabs) {
+      if (!childTab.isExistingChildField) {
+        if (!childTab.field_name || !childTab.field_code) {
+          ElMessage.warning('请填写子字段的名称和标识');
+          return;
         }
         
-        loadTabOptions(optionTabs.value[0]);
-      } else {
-        if (currentTab && currentTab.field_id) {
-          for (const opt of currentTab.options) {
-            if (opt.id) {
-              await updateFieldOptionItem(opt.id, {
-                option_text: opt.option_text,
-                option_value: opt.option_value,
-                status: opt.status,
-                display_order: opt.display_order
-              });
-              totalSavedOptions++;
-            } else {
-              await createFieldOptionItem(currentTab.field_id, {
-                option_text: opt.option_text,
-                option_value: opt.option_value,
-                status: opt.status,
-                display_order: opt.display_order
-              });
-              totalSavedOptions++;
-            }
-          }
+        const childFieldData = {
+          field_name: childTab.field_name,
+          field_code: childTab.field_code,
+          status: childTab.status,
+          parent_field_id: fieldFormData.id,
+          field_level: childTab.field_level,
+          description: childTab.description
+        };
+        
+        if (childTab.field_id) {
+          childFieldData.id = childTab.field_id;
         }
-        fieldDetailVisible.value = false;
-      }
-      
-      if (isEdit) {
-        if (totalSavedOptions > 0) {
-          ElMessage.success(`保存成功，同时保存了 ${totalSavedOptions} 个选项`);
-        } else {
-          ElMessage.success('保存成功');
+        
+        const result = await saveFieldAndOptions(
+          childFieldData, 
+          childTab, 
+          !!childTab.field_id, 
+          null
+        );
+        
+        grandTotalSavedOptions += result.totalSavedOptions;
+        grandTotalDeletedOptions += result.totalDeletedOptions;
+        
+        if (result.fieldResult && !childTab.field_id) {
+          childTab.field_id = result.fieldResult.id;
+          childTab.id = `tab-${result.fieldResult.id}`;
+          childTab.isTemp = false;
         }
       } else {
-        if (totalSavedOptions > 0) {
-          ElMessage.success(`创建成功，同时保存了 ${totalSavedOptions} 个选项`);
-        } else {
-          ElMessage.success('创建成功');
-        }
+        // 已存在的子字段，只保存选项
+        const result = await saveFieldAndOptions(
+          {}, 
+          childTab, 
+          false, 
+          null, 
+          false, 
+          true
+        );
+        
+        grandTotalSavedOptions += result.totalSavedOptions;
+        grandTotalDeletedOptions += result.totalDeletedOptions;
       }
-      
-      await loadFieldList();
-      await loadAllFields();
+    }
+    
+    let message = '保存成功';
+    if (grandTotalDeletedOptions > 0 && grandTotalSavedOptions > 0) {
+      message = `保存成功，保存了 ${grandTotalSavedOptions} 个选项，删除了 ${grandTotalDeletedOptions} 个选项`;
+    } else if (grandTotalDeletedOptions > 0) {
+      message = `保存成功，删除了 ${grandTotalDeletedOptions} 个选项`;
+    } else if (grandTotalSavedOptions > 0) {
+      message = `保存成功，保存了 ${grandTotalSavedOptions} 个选项`;
+    }
+    
+    ElMessage.success(message);
+    
+    await loadFieldList();
+    await loadAllFields();
+    
+    if (activeTab.value === 'options') {
+      await loadOptionList();
+    } else {
       needRefreshOptionList.value = true;
     }
+    
+    fieldDetailVisible.value = false;
   } catch (error) {
     if (error !== false && typeof error !== 'boolean') {
       console.error('保存字段失败:', error);
-      ElMessage.error('保存字段失败');
     }
   }
 };
 
 const handleDeleteField = async (id) => {
   try {
-    await ElMessageBox.confirm('确定要删除该字段吗？', '提示', {
+    await ElMessageBox.confirm('确定要删除该字段吗？该字段的子字段将被解除关联，且层级会自动更新。', '提示', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning'
     });
     
+    // 后端会自动处理所有关联关系的清理
     await deleteFieldOption(id);
     ElMessage.success('删除成功');
     await loadFieldList();
     await loadAllFields();
-    needRefreshOptionList.value = true;
+    
+    if (activeTab.value === 'options') {
+      await loadOptionList();
+    } else {
+      needRefreshOptionList.value = true;
+    }
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除字段失败:', error);
@@ -709,24 +1183,129 @@ const handleToggleOptionStatus = async (row) => {
   }
 };
 
-const handleParentFieldChange = (parentId) => {
-  if (parentId) {
-    const parentField = allFields.value.find(f => f.id === parentId);
+const handleDeleteOptionFromList = async (row) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该选项吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    });
+    
+    await deleteFieldOptionItem(row.id);
+    ElMessage.success('删除成功');
+    await loadOptionList();
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除选项失败:', error);
+      ElMessage.error('删除选项失败');
+    }
+  }
+};
+
+
+
+const handleParentFieldChange = async (newParentId) => {
+  if (newParentId) {
+    const parentField = allFields.value.find(f => f.id === newParentId);
     if (parentField) {
       fieldFormData.field_level = parentField.field_level + 1;
+    }
+    
+    try {
+      const result = await getFieldOptionItems(newParentId);
+      if (result) {
+        let options = [];
+        if (Array.isArray(result)) {
+          options = result;
+        } else if (result.list) {
+          options = result.list;
+        } else {
+          options = [];
+        }
+        parentFieldOptionsList.value = options.filter(opt => opt.status === 'enabled');
+      }
+    } catch (error) {
+      console.error('加载上级字段选项失败:', error);
+      parentFieldOptionsList.value = [];
+    }
+  } else {
+    fieldFormData.field_level = 1;
+    parentFieldOptionsList.value = [];
+  }
+  
+  currentParentFieldId.value = newParentId;
+  
+  // 关键逻辑：无论上级字段变成什么，只要发生变化，清空所有选项的 parent_option_id
+  optionTabs.value.forEach(tab => {
+    if (tab.options) {
+      tab.options.forEach(opt => {
+        opt.parent_option_id = null;
+      });
+    }
+  });
+};
+
+const handleOptionSelectionChange = (tab, val) => {
+  tab.selectedOptions = val;
+};
+
+const getSelectedOptions = (tab) => {
+  return tab.selectedOptions || [];
+};
+
+const handleBatchDeleteOptions = async (tab) => {
+  try {
+    if (getSelectedOptions(tab).length === 0) {
+      ElMessage.warning('请先选择要删除的选项');
+      return;
+    }
+    
+    await ElMessageBox.confirm(`确定要删除选中的 ${getSelectedOptions(tab).length} 个选项吗？`, '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    });
+    
+    // 记录被删除的选项ID
+    if (!tab.deletedOptionIds) {
+      tab.deletedOptionIds = new Set();
+    }
+    getSelectedOptions(tab).forEach(opt => {
+      if (opt.id && !opt.id.toString().startsWith('temp-')) {
+        tab.deletedOptionIds.add(opt.id);
+      }
+    });
+    
+    // 直接从数组中移除选中的选项
+    const selectedIds = new Set(getSelectedOptions(tab).map(opt => opt.id));
+    tab.options = tab.options.filter(opt => !selectedIds.has(opt.id));
+    
+    tab.selectedOptions = [];
+
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量删除选项失败:', error);
+      ElMessage.error('批量删除选项失败');
     }
   }
 };
 
 const handleAddOption = (tab) => {
+  const activeOptions = tab.options.filter(o => !o._deleted);
   const newOption = {
-    id: null,
+    id: `temp-${Date.now()}`,
     option_text: '',
     option_value: '',
     status: 'enabled',
-    display_order: tab.options.length + 1
+    display_order: 1,
+    _deleted: false
   };
-  tab.options.push(newOption);
+  
+  activeOptions.forEach(opt => {
+    opt.display_order = (opt.display_order || 1) + 5;
+  });
+  
+  tab.options.unshift(newOption);
   
   nextTick(() => {
     const textInput = document.querySelector('.option-text-input:last-child input');
@@ -736,16 +1315,7 @@ const handleAddOption = (tab) => {
   });
 };
 
-const handleOptionStatusChange = async (row, tab) => {
-  try {
-    if (row.id) {
-      await updateFieldOptionItem(row.id, { status: row.status });
-    }
-    ElMessage.success('状态更新成功');
-  } catch (error) {
-    console.error('更新选项状态失败:', error);
-    ElMessage.error('更新选项状态失败');
-  }
+const handleOptionStatusChange = (row, tab) => {
 };
 
 const handleDeleteOption = async (row, tab) => {
@@ -756,19 +1326,20 @@ const handleDeleteOption = async (row, tab) => {
       type: 'warning'
     });
     
-    if (row.id) {
-      await deleteFieldOptionItem(row.id);
-      loadTabOptions(tab);
-    } else {
-      const index = tab.options.findIndex(o => o === row);
-      if (index > -1) {
-        tab.options.splice(index, 1);
-        tab.options.forEach((opt, idx) => {
-          opt.display_order = idx + 1;
-        });
+    // 记录被删除的选项ID
+    if (row.id && !row.id.toString().startsWith('temp-')) {
+      if (!tab.deletedOptionIds) {
+        tab.deletedOptionIds = new Set();
       }
+      tab.deletedOptionIds.add(row.id);
     }
-    ElMessage.success('删除成功');
+    
+    // 直接从数组中移除选项
+    const index = tab.options.findIndex(opt => opt.id === row.id);
+    if (index > -1) {
+      tab.options.splice(index, 1);
+    }
+    
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除选项失败:', error);
@@ -777,74 +1348,83 @@ const handleDeleteOption = async (row, tab) => {
   }
 };
 
-const handleOptionSelectionChange = (tab, val) => {
-  tab.selectedOptions = val;
-};
-
-const handleBatchDeleteOptions = async (tab) => {
+const handleRefreshOrder = (tab) => {
   try {
-    if (tab.selectedOptions.length === 0) {
-      ElMessage.warning('请先选择要删除的选项');
-      return;
-    }
-    
-    await ElMessageBox.confirm(`确定要删除选中的 ${tab.selectedOptions.length} 个选项吗？`, '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
+    tab.options.forEach((opt, index) => {
+      opt.display_order = 1 + index * 5;
     });
-    
-    const hasIds = tab.selectedOptions.some(o => o.id);
-    if (hasIds) {
-      const selectedIds = tab.selectedOptions.filter(o => o.id).map(o => o.id);
-      await batchDeleteOptionItems({ ids: selectedIds });
-    }
-    
-    if (tab.field_id) {
-      loadTabOptions(tab);
-    } else {
-      const selectedSet = new Set(tab.selectedOptions);
-      tab.options = tab.options.filter(o => !selectedSet.has(o));
-      tab.options.forEach((opt, idx) => {
-        opt.display_order = idx + 1;
-      });
-      tab.selectedOptions = [];
-    }
-    
-    ElMessage.success('批量删除成功');
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('批量删除选项失败:', error);
-      ElMessage.error('批量删除选项失败');
-    }
-  }
-};
-
-const handleRefreshOrder = async (tab) => {
-  try {
-    if (tab.field_id) {
-      const orders = tab.options.map((opt, index) => ({
-        id: opt.id,
-        display_order: index + 1
-      }));
-      
-      await refreshOptionOrder(tab.field_id, { orders });
-      ElMessage.success('刷新序号成功');
-      loadTabOptions(tab);
-    } else {
-      tab.options.forEach((opt, index) => {
-        opt.display_order = index + 1;
-      });
-      ElMessage.success('刷新序号成功');
-    }
+    ElMessage.success('序号刷新成功');
   } catch (error) {
     console.error('刷新序号失败:', error);
     ElMessage.error('刷新序号失败');
   }
 };
 
+const handleDragStart = (event, index, tab) => {
+  dragIndex.value = index;
+  dragTab.value = tab;
+  event.dataTransfer.effectAllowed = 'move';
+};
+
+const handleDragOver = (event, index, tab) => {
+  event.dataTransfer.dropEffect = 'move';
+};
+
+const handleDrop = (event, dropIndex, tab) => {
+  event.preventDefault();
+  if (dragIndex.value === null || dragTab.value !== tab) return;
+  
+  const activeOptions = tab.options.filter(opt => !opt._deleted);
+  const dragOption = activeOptions[dragIndex.value];
+  
+  if (dragOption) {
+    const deletedOptions = tab.options.filter(opt => opt._deleted);
+    
+    const tempOptions = [...activeOptions];
+    tempOptions.splice(dragIndex.value, 1);
+    tempOptions.splice(dropIndex, 0, dragOption);
+    
+    tempOptions.forEach((opt, index) => {
+      opt.display_order = 1 + index * 5;
+    });
+    
+    tab.options = [...tempOptions, ...deletedOptions];
+  }
+  
+  dragIndex.value = null;
+  dragTab.value = null;
+};
+
+const handleDragEnd = (tab) => {
+  dragIndex.value = null;
+  dragTab.value = null;
+};
+
 const handleAddChildField = () => {
-  ElMessage.info('添加子字段功能待实现');
+  if (!fieldFormData.id) {
+    ElMessage.warning('请先保存当前字段，再添加子字段');
+    return;
+  }
+  
+  const newChildTab = {
+    id: `child-tab-${Date.now()}`,
+    field_id: null,
+    parent_field_id: fieldFormData.id,
+    field_level: fieldFormData.field_level + 1,
+    field_name: '',
+    field_code: '',
+    status: 'enabled',
+    description: '',
+    options: [],
+    loading: false,
+    isChildField: true,
+    isTemp: true,
+    selectedOptions: [],
+    deletedOptionIds: new Set()
+  };
+  
+  optionTabs.value.push(newChildTab);
+  optionActiveTab.value = newChildTab.id;
 };
 
 const getOptionStatusType = (status) => {
@@ -864,6 +1444,127 @@ const getOptionStatusText = (status) => {
     case 'archived': return '封存';
     case 'deleted': return '已删除';
     default: return status;
+  }
+};
+
+const handleExport = async () => {
+  try {
+    let url = 'http://localhost:3000/api/field-options/export/download';
+    const params = new URLSearchParams();
+    if (fieldSearchKeyword.value) {
+      params.append('keyword', fieldSearchKeyword.value);
+    }
+    if (fieldStatusFilter.value) {
+      params.append('status', fieldStatusFilter.value);
+    }
+    if (params.toString()) {
+      url += '?' + params.toString();
+    }
+    
+    const token = localStorage.getItem('token');
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('导出失败');
+    }
+    
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = `field_options_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(downloadUrl);
+    
+    ElMessage.success('导出成功');
+  } catch (error) {
+    console.error('导出失败:', error);
+    ElMessage.error('导出失败');
+  }
+};
+
+const handleDownloadTemplate = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch('http://localhost:3000/api/field-options/import/template', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('下载模板失败');
+    }
+    
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = 'field_options_import_template.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(downloadUrl);
+    
+    ElMessage.success('模板下载成功');
+  } catch (error) {
+    console.error('下载模板失败:', error);
+    ElMessage.error('下载模板失败');
+  }
+};
+
+const handleFileChange = (file) => {
+  importFile.value = file.raw;
+};
+
+const handleImport = async () => {
+  if (!importFile.value) {
+    ElMessage.warning('请选择要导入的文件');
+    return;
+  }
+  
+  try {
+    importing.value = true;
+    const formData = new FormData();
+    formData.append('file', importFile.value);
+    
+    const token = localStorage.getItem('token');
+    const response = await fetch('http://localhost:3000/api/field-options/import/upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+    
+    const result = await response.json();
+    
+    if (result.code === 200) {
+      ElMessage.success(`导入成功！字段数：${result.data.fieldCount}，选项数：${result.data.optionCount}`);
+      importDialogVisible.value = false;
+      importFile.value = null;
+      if (importFileRef.value) {
+        importFileRef.value.clearFiles();
+      }
+      loadFieldList();
+      loadAllFields();
+      loadOptionList();
+    } else {
+      ElMessage.error(result.message || '导入失败');
+    }
+  } catch (error) {
+    console.error('导入失败:', error);
+    ElMessage.error('导入失败');
+  } finally {
+    importing.value = false;
   }
 };
 
@@ -909,7 +1610,7 @@ onMounted(() => {
 
 .form-row {
   display: flex;
-  padding: 10px 0;
+  padding: 4px 0;
 }
 
 .form-row .el-form-item {
@@ -945,10 +1646,29 @@ onMounted(() => {
   min-height: 300px;
 }
 
+.child-field-info {
+  background-color: #f5f7fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+}
+
+.child-field-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.child-field-form {
+  background-color: #fff;
+}
+
 .tab-toolbar {
   display: flex;
   gap: 10px;
-  margin-bottom: 10px;
+  padding: 4px 0;
   align-items: center;
   flex-wrap: wrap;
 }
@@ -963,10 +1683,78 @@ onMounted(() => {
 .parent-field-label {
   font-size: 14px;
   color: #606266;
-  white-space: nowrap;
 }
 
 .parent-field-select {
   width: 200px;
+}
+
+.drag-handle {
+  cursor: move;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.drag-handle:hover {
+  background-color: #f0f9eb;
+}
+
+.hidden-row {
+  display: none !important;
+}
+
+/* 确保表格行被正确隐藏 */
+el-table .el-table__row.hidden-row {
+  display: none !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  border: none !important;
+}
+
+/* 字段树样式 */
+.field-tree-layout {
+  display: flex;
+  height: 600px;
+}
+
+.field-tree-left {
+  width: 100%;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+}
+
+.tree-toolbar {
+  padding: 12px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.field-tree-left :deep(.el-tree) {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.tree-node-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.tree-node-label {
+  font-weight: 500;
+  color: #303133;
+}
+
+.tree-node-code {
+  color: #909399;
+  font-size: 13px;
+}
+
+.tree-node-level {
+  margin-left: auto;
 }
 </style>

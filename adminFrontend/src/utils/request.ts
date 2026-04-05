@@ -39,7 +39,9 @@ instance.interceptors.response.use(
     if (code === 200) {
       return data;
     } else {
-      ElMessage.error(message || '请求失败');
+      if (!(response.config as any)._skipErrorMessage) {
+        ElMessage.error(message || '请求失败');
+      }
       return Promise.reject(new Error(message || '请求失败'));
     }
   },
@@ -61,7 +63,9 @@ instance.interceptors.response.use(
       localStorage.removeItem('user');
       window.location.href = '/login';
     } else {
-      ElMessage.error(errorMessage);
+      if (!(error.config as any)?._skipErrorMessage) {
+        ElMessage.error(errorMessage);
+      }
     }
     
     return Promise.reject(error);

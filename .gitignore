@@ -54,3 +54,5 @@ backend/test_stats.js
 
 scripts/seeds/TODO.md
 .gitignore
+.trae/skills/ProcessFileStandardizer/SKILL.md
+.trae/skills/ProDocsSyncMngt/SKILL.md

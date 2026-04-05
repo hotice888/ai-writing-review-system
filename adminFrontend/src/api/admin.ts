@@ -320,8 +320,8 @@ export const deleteFieldOptionItem = (id: string) => {
   return request.delete<any, any>(`/field-options/items/${id}`);
 };
 
-export const batchDeleteOptionItems = (ids: string[]) => {
-  return request.delete<any, any>('/field-options/items/batch', { data: { ids } });
+export const batchDeleteOptionItems = (data: { ids: string[] }) => {
+  return request.post<any, any>('/field-options/items/batch', data);
 };
 
 export const updateOptionItemStatus = (id: string, status: string) => {

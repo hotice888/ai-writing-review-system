@@ -17,7 +17,11 @@ router.put('/:fieldId/items/refresh-order', authMiddleware, adminMiddleware, fie
 
 router.put('/items/:id', authMiddleware, adminMiddleware, fieldOptionController.updateFieldOptionItem);
 router.delete('/items/:id', authMiddleware, adminMiddleware, fieldOptionController.deleteFieldOptionItem);
-router.delete('/items/batch', authMiddleware, adminMiddleware, fieldOptionController.batchDeleteOptionItems);
+router.post('/items/batch', authMiddleware, adminMiddleware, fieldOptionController.batchDeleteOptionItems);
 router.put('/items/:id/status', authMiddleware, adminMiddleware, fieldOptionController.toggleOptionItemStatus);
+
+router.get('/export/download', authMiddleware, adminMiddleware, fieldOptionController.exportFieldOptions);
+router.get('/import/template', authMiddleware, adminMiddleware, fieldOptionController.downloadImportTemplate);
+router.post('/import/upload', authMiddleware, adminMiddleware, fieldOptionController.importFieldOptions);
 
 module.exports = router;

@@ -263,7 +263,7 @@ const initDatabase = async () => {
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         field_id UUID NOT NULL REFERENCES field_options(id) ON DELETE CASCADE,
         option_text VARCHAR(200) NOT NULL,
-        option_value VARCHAR(200) NOT NULL,
+        option_value VARCHAR(200),
         status VARCHAR(20) DEFAULT 'enabled',
         display_order INT DEFAULT 0,
         parent_option_id UUID REFERENCES field_option_items(id) ON DELETE SET NULL,
@@ -271,6 +271,14 @@ const initDatabase = async () => {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // 确保 option_value 字段允许 NULL 值
+    try {
+      await pool.query(`ALTER TABLE field_option_items ALTER COLUMN option_value DROP NOT NULL`);
+      console.log('Removed NOT NULL constraint from option_value column');
+    } catch (error) {
+      console.error('Error modifying option_value column:', error);
+    }
 
     console.log('Database tables initialized successfully');
   } catch (error) {
