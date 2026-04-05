@@ -330,7 +330,7 @@ const getAllOptionItems = async (req, res) => {
       LEFT JOIN field_option_items pfoi ON foi.parent_option_id = pfoi.id
       LEFT JOIN field_options pfo ON fo.parent_field_id = pfo.id
       ${whereClause}
-      ORDER BY fo.field_level ASC, foi.display_order ASC, foi.created_at ASC 
+      ORDER BY fo.field_name ASC, foi.display_order ASC 
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
     
