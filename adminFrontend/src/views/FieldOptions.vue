@@ -160,6 +160,9 @@
         <div class="field-options-setting">
           <div class="options-setting-area">
             <div class="options-tabs-wrapper">
+              <div class="add-child-field-btn" v-if="fieldFormData.id">
+                <el-button type="primary" @click="handleAddChildField" icon="Plus" circle />
+              </div>
               <el-tabs v-model="optionActiveTab" type="card" class="options-tabs">
                 <el-tab-pane 
                   v-for="tab in optionTabs" 
@@ -242,9 +245,6 @@
                   </div>
                 </el-tab-pane>
               </el-tabs>
-              <div class="add-child-field-btn" v-if="fieldFormData.id">
-                <el-button type="primary" @click="handleAddChildField" icon="Plus" circle />
-              </div>
             </div>
           </div>
         </div>
@@ -859,18 +859,17 @@ onMounted(() => {
 
 .options-tabs-wrapper {
   position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
 }
 
 .options-tabs {
-  flex: 1;
+  width: 100%;
 }
 
 .add-child-field-btn {
-  margin-top: 5px;
-  flex-shrink: 0;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
 }
 
 .tab-content {
