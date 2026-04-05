@@ -38,7 +38,7 @@ const getFieldOptions = async (req, res) => {
       FROM field_options fo
       LEFT JOIN field_options pfo ON fo.parent_field_id = pfo.id
       ${whereClause}
-      ORDER BY fo.field_level ASC, fo.created_at DESC 
+      ORDER BY fo.updated_at DESC 
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
     
