@@ -208,30 +208,20 @@
                       <el-table-column prop="option_text" label="选项名称" min-width="150">
                         <template #default="scope">
                           <el-input
-                            v-if="scope.row.editing"
                             v-model="scope.row.option_text"
                             size="small"
                             class="option-text-input"
-                            @blur="handleSaveOptionEdit(scope.row, tab)"
-                            @keyup.enter="handleSaveOptionEdit(scope.row, tab)"
+                            placeholder="请输入选项名称"
                           />
-                          <span v-else @click="handleStartEdit(scope.row)" style="cursor: pointer; width: 100%; display: block;">
-                            {{ scope.row.option_text || '<点击编辑>' }}
-                          </span>
                         </template>
                       </el-table-column>
                       <el-table-column prop="option_value" label="选项Value" min-width="150">
                         <template #default="scope">
                           <el-input
-                            v-if="scope.row.editing"
                             v-model="scope.row.option_value"
                             size="small"
-                            @blur="handleSaveOptionEdit(scope.row, tab)"
-                            @keyup.enter="handleSaveOptionEdit(scope.row, tab)"
+                            placeholder="请输入选项Value"
                           />
-                          <span v-else @click="handleStartEdit(scope.row)" style="cursor: pointer; width: 100%; display: block;">
-                            {{ scope.row.option_value }}
-                          </span>
                         </template>
                       </el-table-column>
                       <el-table-column prop="display_order" label="显示序号" width="100" />
@@ -556,6 +546,25 @@ const handleSaveField = async () => {
   try {
     await fieldFormRef.value?.validate();
     
+    const currentTab = optionTabs.value.find(tab => tab.id === optionActiveTab.value) || optionTabs.value[0];
+    
+    if (currentTab && currentTab.options.length > 0) {
+      const optionTexts = [];
+      for (let i = 0; i < currentTab.options.length; i++) {
+        const opt = currentTab.options[i];
+        if (!opt.option_text || !opt.option_text.trim()) {
+          ElMessage.warning(`第 ${i + 1} 个选项：选项名称必填`);
+          return;
+        }
+        const trimmedText = opt.option_text.trim();
+        if (optionTexts.includes(trimmedText)) {
+          ElMessage.warning(`第 ${i + 1} 个选项：选项名称"${trimmedText}"重复`);
+          return;
+        }
+        optionTexts.push(trimmedText);
+      }
+    }
+    
     let result;
     const isEdit = !!fieldFormData.id;
     const tempTab = optionTabs.value.find(tab => tab.isTemp);
@@ -597,6 +606,26 @@ const handleSaveField = async () => {
         
         loadTabOptions(optionTabs.value[0]);
       } else {
+        if (currentTab && currentTab.field_id) {
+          for (const opt of currentTab.options) {
+            if (opt.id) {
+              await updateFieldOptionItem(opt.id, {
+                option_text: opt.option_text,
+                option_value: opt.option_value,
+                status: opt.status,
+                display_order: opt.display_order
+              });
+            } else {
+              await createFieldOptionItem(currentTab.field_id, {
+                option_text: opt.option_text,
+                option_value: opt.option_value,
+                status: opt.status,
+                display_order: opt.display_order
+              });
+            }
+          }
+          ElMessage.success('选项保存成功');
+        }
         fieldDetailVisible.value = false;
       }
       
@@ -680,8 +709,7 @@ const handleAddOption = (tab) => {
     option_text: '',
     option_value: '',
     status: 'enabled',
-    display_order: tab.options.length + 1,
-    editing: true
+    display_order: tab.options.length + 1
   };
   tab.options.push(newOption);
   
@@ -691,43 +719,6 @@ const handleAddOption = (tab) => {
       textInput.focus();
     }
   });
-};
-
-const handleStartEdit = (row) => {
-  row.editing = true;
-};
-
-const handleSaveOptionEdit = async (row, tab) => {
-  try {
-    if (!row.option_text || !row.option_value) {
-      ElMessage.warning('选项名称和选项Value必填');
-      row.editing = true;
-      return;
-    }
-    
-    if (row.id) {
-      const { editing, ...updateData } = row;
-      await updateFieldOptionItem(row.id, updateData);
-    } else {
-      if (tab.field_id) {
-        const result = await createFieldOptionItem(tab.field_id, {
-          option_text: row.option_text,
-          option_value: row.option_value,
-          status: row.status,
-          display_order: row.display_order
-        });
-        if (result) {
-          row.id = result.id;
-        }
-      }
-    }
-    row.editing = false;
-    ElMessage.success('保存成功');
-    needRefreshOptionList.value = true;
-  } catch (error) {
-    console.error('保存选项失败:', error);
-    ElMessage.error('保存选项失败');
-  }
 };
 
 const handleOptionStatusChange = async (row, tab) => {
