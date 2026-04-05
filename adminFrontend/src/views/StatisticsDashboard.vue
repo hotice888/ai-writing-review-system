@@ -170,39 +170,17 @@
             </div>
             
             <div class="trend-chart">
-              <div class="trend-content">
+              <div class="trend-y-axis">
                 <svg 
-                  class="trend-svg" 
-                  :viewBox="`0 0 ${chartWidth} ${chartHeight + 30}`"
-                  @mousemove="handleSvgMouseMove"
-                  @mouseleave="hideTooltip"
+                  class="trend-y-svg" 
+                  :viewBox="`0 0 60 ${chartHeight + 80}`"
                 >
-                  <g class="grid-lines">
-                    <line 
-                      v-for="i in 6" 
-                      :key="`grid-${i}`"
-                      :x1="60"
-                      :y1="30 + (chartHeight / 5) * (i - 1)"
-                      :x2="chartWidth"
-                      :y2="30 + (chartHeight / 5) * (i - 1)"
-                      stroke="#f0f0f0"
-                      stroke-width="1"
-                    />
-                  </g>
-                  
-                  <g class="axis-lines">
-                    <line x1="60" y1="20" x2="60" y2="230" stroke="#909399" stroke-width="2"/>
-                    <polygon points="55,20 60,10 65,20" fill="#909399"/>
-                    <line x1="60" y1="230" x2="600" y2="230" stroke="#909399" stroke-width="2"/>
-                    <polygon points="595,225 600,230 595,235" fill="#909399"/>
-                  </g>
-                  
                   <g class="y-axis-labels">
                     <text 
                       v-for="(value, index) in yAxisLabels" 
                       :key="index"
                       :x="55"
-                      :y="30 + (chartHeight / 5) * index"
+                      :y="chartHeight + 20 - (chartHeight / 6) * index"
                       text-anchor="end"
                       dominant-baseline="middle"
                       class="svg-y-label"
@@ -210,69 +188,114 @@
                       {{ formatNumber(value) }}
                     </text>
                   </g>
-                  
-                  <g v-if="trendTab === 'total'" class="trend-bar-group">
-                    <rect 
-                      v-for="(point, index) in totalTrendPointsArray"
-                      :key="`bar-${index}`"
-                      :x="point.x - point.barWidth / 2"
-                      :y="point.y"
-                      :width="point.barWidth"
-                      :height="230 - point.y"
-                      fill="#409eff"
-                      rx="2"
-                      @mouseenter="showCategoryTooltip('total', point.value, index, $event)"
-                      @mouseleave="hideTooltip"
-                      style="cursor: pointer;"
-                    />
-                    <circle 
-                      v-for="(point, index) in totalTrendPointsArray"
-                      :key="`dot-${index}`"
-                      :cx="point.x"
-                      :cy="230"
-                      r="5"
-                      fill="#f56c6c"
-                      stroke="white"
-                      stroke-width="2"
-                    />
-                  </g>
-                  
-                  <g v-else class="trend-line-group">
-                    <g v-for="(category, catIndex) in selectedCategories" :key="category">
-                      <polyline 
-                        :points="getCategoryTrendPoints(category)"
-                        fill="none"
-                        :stroke="getCategoryColor(category, trendTab)"
-                        stroke-width="2"
-                      />
-                      <circle 
-                        v-for="(point, index) in getCategoryTrendPointsArray(category)"
-                        :key="`${category}-${index}`"
-                        :cx="point.x"
-                        :cy="point.y"
-                        r="4"
-                        :fill="getCategoryColor(category, trendTab)"
-                        stroke="white"
-                        stroke-width="2"
-                        @mouseenter="showCategoryTooltip(category, point.value, index, $event)"
-                        @mouseleave="hideTooltip"
+                </svg>
+              </div>
+              <div 
+                class="trend-content-scroll" 
+                @scroll="handleChartScroll"
+                ref="chartScrollRef"
+              >
+                <div class="trend-content" :style="{ width: chartTotalWidth + 'px' }">
+                  <svg 
+                    class="trend-svg" 
+                    :viewBox="`-10 0 ${chartTotalWidth + 10} ${chartHeight + 80}`"
+                    @mousemove="handleSvgMouseMove"
+                    @mouseleave="hideTooltip"
+                    :style="{ width: chartTotalWidth + 'px' }"
+                  >
+                    <g class="grid-lines">
+                      <line 
+                        v-for="i in 7" 
+                        :key="`grid-${i}`"
+                        :x1="0"
+                        :y1="chartHeight + 20 - (chartHeight / 6) * (i - 1)"
+                        :x2="chartTotalWidth"
+                        :y2="chartHeight + 20 - (chartHeight / 6) * (i - 1)"
+                        stroke="#f0f0f0"
+                        stroke-width="1"
                       />
                     </g>
-                  </g>
-                  
-                  <g class="x-axis-labels">
-                    <text 
-                      v-for="(period, index) in periodLabels" 
-                      :key="index"
-                      :x="getXPositionForSvg(index)"
-                      :y="250"
-                      text-anchor="middle"
-                      class="svg-x-label"
-                    >
-                      {{ formatPeriodLabel(period, trendPeriod) }}
-                    </text>
-                  </g>
-                </svg>
+                    
+                    <g class="y-axis-lines">
+                      <line x1="0" y1="20" x2="0" :y2="chartHeight + 20" stroke="#909399" stroke-width="2"/>
+                      <polygon points="-5,20 0,5 5,20" fill="#909399"/>
+                    </g>
+                    
+                    <g class="x-axis-lines">
+                      <line x1="0" :y1="chartHeight + 20" :x2="chartTotalWidth" :y2="chartHeight + 20" stroke="#909399" stroke-width="2"/>
+                      <polygon :points="`${chartTotalWidth - 5},${chartHeight + 15} ${chartTotalWidth},${chartHeight + 20} ${chartTotalWidth - 5},${chartHeight + 25}`" fill="#909399"/>
+                    </g>
+                    
+                    <g v-if="trendTab === 'total'" class="trend-bar-group">
+                      <rect 
+                        v-for="(point, index) in totalTrendPointsArray"
+                        :key="`bar-${index}`"
+                        :x="point.x - point.barWidth / 2"
+                        :y="point.y"
+                        :width="point.barWidth"
+                        :height="chartHeight + 20 - point.y"
+                        fill="#409eff"
+                        rx="2"
+                        @mouseenter="showCategoryTooltip('total', point.value, point.originalIndex, $event)"
+                        @mouseleave="hideTooltip"
+                        style="cursor: pointer;"
+                      />
+                      <circle 
+                        v-for="(point, index) in totalTrendPointsArray"
+                        :key="`dot-${index}`"
+                        :cx="point.x"
+                        :cy="chartHeight + 20"
+                        r="5"
+                        fill="#f56c6c"
+                        stroke="white"
+                        stroke-width="2"
+                      />
+                    </g>
+                    
+                    <g v-else class="trend-line-group">
+                      <g v-for="(category, catIndex) in selectedCategories" :key="category">
+                        <polyline 
+                          :points="getCategoryTrendPoints(category)"
+                          fill="none"
+                          :stroke="getCategoryColor(category, trendTab)"
+                          stroke-width="2"
+                        />
+                        <circle 
+                          v-for="(point, index) in getCategoryTrendPointsArray(category)"
+                          :key="`${category}-${index}`"
+                          :cx="point.x"
+                          :cy="point.y"
+                          r="4"
+                          :fill="getCategoryColor(category, trendTab)"
+                          stroke="white"
+                          stroke-width="2"
+                          @mouseenter="showCategoryTooltip(category, point.value, point.originalIndex, $event)"
+                          @mouseleave="hideTooltip"
+                        />
+                      </g>
+                    </g>
+                    
+                    <g class="x-axis-labels">
+                      <text 
+                        v-for="(period, index) in periodLabels" 
+                        :key="index"
+                        :x="periodWidth * index + periodWidth / 2"
+                        :y="chartHeight + 38"
+                        text-anchor="middle"
+                        class="svg-x-label"
+                      >
+                        <tspan 
+                          v-for="(line, lineIndex) in formatPeriodLabelLines(period, trendPeriod)" 
+                          :key="lineIndex"
+                          :x="periodWidth * index + periodWidth / 2"
+                          :dy="lineIndex > 0 ? '14' : '0'"
+                        >
+                          {{ line }}
+                        </tspan>
+                      </text>
+                    </g>
+                  </svg>
+                </div>
               </div>
               <div 
                 v-if="tooltipVisible"
@@ -347,39 +370,17 @@
         </div>
         
         <div class="trend-chart-dialog">
-          <div class="trend-content-dialog">
+          <div class="trend-y-axis-dialog">
             <svg 
-              class="trend-svg" 
-              :viewBox="`0 0 ${dialogChartWidth} ${dialogChartHeight + 30}`"
-              @mousemove="handleSvgMouseMove"
-              @mouseleave="hideTooltip"
+              class="trend-y-svg" 
+              :viewBox="`0 0 60 ${dialogChartHeight + 80}`"
             >
-              <g class="grid-lines">
-                <line 
-                  v-for="i in 6" 
-                  :key="`grid-${i}`"
-                  :x1="60"
-                  :y1="30 + (dialogChartHeight / 5) * (i - 1)"
-                  :x2="dialogChartWidth"
-                  :y2="30 + (dialogChartHeight / 5) * (i - 1)"
-                  stroke="#f0f0f0"
-                  stroke-width="1"
-                />
-              </g>
-              
-              <g class="axis-lines">
-                <line x1="60" y1="20" x2="60" y2="330" stroke="#909399" stroke-width="2"/>
-                <polygon points="55,20 60,10 65,20" fill="#909399"/>
-                <line x1="60" y1="330" x2="900" y2="330" stroke="#909399" stroke-width="2"/>
-                <polygon points="895,325 900,330 895,335" fill="#909399"/>
-              </g>
-              
               <g class="y-axis-labels">
                 <text 
                   v-for="(value, index) in yAxisLabels" 
                   :key="index"
                   :x="55"
-                  :y="30 + (dialogChartHeight / 5) * index"
+                  :y="dialogChartHeight + 20 - (dialogChartHeight / 6) * index"
                   text-anchor="end"
                   dominant-baseline="middle"
                   class="svg-y-label"
@@ -387,69 +388,114 @@
                   {{ formatNumber(value) }}
                 </text>
               </g>
-              
-              <g v-if="trendTab === 'total'" class="trend-bar-group">
-                <rect 
-                  v-for="(point, index) in dialogTotalTrendPointsArray"
-                  :key="`bar-${index}`"
-                  :x="point.x - point.barWidth / 2"
-                  :y="point.y"
-                  :width="point.barWidth"
-                  :height="330 - point.y"
-                  fill="#409eff"
-                  rx="2"
-                  @mouseenter="showCategoryTooltip('total', point.value, index, $event)"
-                  @mouseleave="hideTooltip"
-                  style="cursor: pointer;"
-                />
-                <circle 
-                  v-for="(point, index) in dialogTotalTrendPointsArray"
-                  :key="`dot-${index}`"
-                  :cx="point.x"
-                  :cy="330"
-                  r="5"
-                  fill="#f56c6c"
-                  stroke="white"
-                  stroke-width="2"
-                />
-              </g>
-              
-              <g v-else class="trend-line-group">
-                <g v-for="(category, catIndex) in selectedCategories" :key="category">
-                  <polyline 
-                    :points="getDialogCategoryTrendPoints(category)"
-                    fill="none"
-                    :stroke="getCategoryColor(category, trendTab)"
-                    stroke-width="2"
-                  />
-                  <circle 
-                    v-for="(point, index) in getDialogCategoryTrendPointsArray(category)"
-                    :key="`${category}-${index}`"
-                    :cx="point.x"
-                    :cy="point.y"
-                    r="4"
-                    :fill="getCategoryColor(category, trendTab)"
-                    stroke="white"
-                    stroke-width="2"
-                    @mouseenter="showCategoryTooltip(category, point.value, index, $event)"
-                    @mouseleave="hideTooltip"
+            </svg>
+          </div>
+          <div 
+            class="trend-content-scroll-dialog" 
+            @scroll="handleDialogChartScroll"
+            ref="dialogChartScrollRef"
+          >
+            <div class="trend-content-dialog" :style="{ width: chartTotalWidth + 'px' }">
+              <svg 
+                class="trend-svg" 
+                :viewBox="`-10 0 ${chartTotalWidth + 10} ${dialogChartHeight + 80}`"
+                @mousemove="handleSvgMouseMove"
+                @mouseleave="hideTooltip"
+                :style="{ width: chartTotalWidth + 'px' }"
+              >
+                <g class="grid-lines">
+                  <line 
+                    v-for="i in 7" 
+                    :key="`grid-${i}`"
+                    :x1="0"
+                    :y1="dialogChartHeight + 20 - (dialogChartHeight / 6) * (i - 1)"
+                    :x2="chartTotalWidth"
+                    :y2="dialogChartHeight + 20 - (dialogChartHeight / 6) * (i - 1)"
+                    stroke="#f0f0f0"
+                    stroke-width="1"
                   />
                 </g>
-              </g>
-              
-              <g class="x-axis-labels">
-                <text 
-                  v-for="(period, index) in periodLabels" 
-                  :key="index"
-                  :x="getDialogXPositionForSvg(index)"
-                  :y="350"
-                  text-anchor="middle"
-                  class="svg-x-label"
-                >
-                  {{ formatPeriodLabel(period, trendPeriod) }}
-                </text>
-              </g>
-            </svg>
+                
+                <g class="y-axis-lines">
+                  <line x1="0" y1="20" x2="0" :y2="dialogChartHeight + 20" stroke="#909399" stroke-width="2"/>
+                  <polygon points="-5,20 0,5 5,20" fill="#909399"/>
+                </g>
+                
+                <g class="x-axis-lines">
+                  <line x1="0" :y1="dialogChartHeight + 20" :x2="chartTotalWidth" :y2="dialogChartHeight + 20" stroke="#909399" stroke-width="2"/>
+                  <polygon :points="`${chartTotalWidth - 5},${dialogChartHeight + 15} ${chartTotalWidth},${dialogChartHeight + 20} ${chartTotalWidth - 5},${dialogChartHeight + 25}`" fill="#909399"/>
+                </g>
+                
+                <g v-if="trendTab === 'total'" class="trend-bar-group">
+                  <rect 
+                    v-for="(point, index) in dialogTotalTrendPointsArray"
+                    :key="`bar-${index}`"
+                    :x="point.x - point.barWidth / 2"
+                    :y="point.y"
+                    :width="point.barWidth"
+                    :height="dialogChartHeight + 20 - point.y"
+                    fill="#409eff"
+                    rx="2"
+                    @mouseenter="showCategoryTooltip('total', point.value, point.originalIndex, $event)"
+                    @mouseleave="hideTooltip"
+                    style="cursor: pointer;"
+                  />
+                  <circle 
+                    v-for="(point, index) in dialogTotalTrendPointsArray"
+                    :key="`dot-${index}`"
+                    :cx="point.x"
+                    :cy="dialogChartHeight + 20"
+                    r="5"
+                    fill="#f56c6c"
+                    stroke="white"
+                    stroke-width="2"
+                  />
+                </g>
+                
+                <g v-else class="trend-line-group">
+                  <g v-for="(category, catIndex) in selectedCategories" :key="category">
+                    <polyline 
+                      :points="getDialogCategoryTrendPoints(category)"
+                      fill="none"
+                      :stroke="getCategoryColor(category, trendTab)"
+                      stroke-width="2"
+                    />
+                    <circle 
+                      v-for="(point, index) in getDialogCategoryTrendPointsArray(category)"
+                      :key="`${category}-${index}`"
+                      :cx="point.x"
+                      :cy="point.y"
+                      r="4"
+                      :fill="getCategoryColor(category, trendTab)"
+                      stroke="white"
+                      stroke-width="2"
+                      @mouseenter="showCategoryTooltip(category, point.value, point.originalIndex, $event)"
+                      @mouseleave="hideTooltip"
+                    />
+                  </g>
+                </g>
+                
+                <g class="x-axis-labels">
+                  <text 
+                    v-for="(period, index) in periodLabels" 
+                    :key="index"
+                    :x="periodWidth * index + periodWidth / 2"
+                    :y="dialogChartHeight + 38"
+                    text-anchor="middle"
+                    class="svg-x-label"
+                  >
+                    <tspan 
+                      v-for="(line, lineIndex) in formatPeriodLabelLines(period, trendPeriod)" 
+                      :key="lineIndex"
+                      :x="periodWidth * index + periodWidth / 2"
+                      :dy="lineIndex > 0 ? '14' : '0'"
+                    >
+                      {{ line }}
+                    </tspan>
+                  </text>
+                </g>
+              </svg>
+            </div>
           </div>
           <div 
             v-if="tooltipVisible"
@@ -465,7 +511,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Refresh, Coin, CircleCheck, Check, Close, FullScreen } from '@element-plus/icons-vue';
 import { getStatisticsOverview, getStatisticsRankings, getStatisticsTrends, getUserModels, getModelProviders } from '../api/admin';
@@ -496,11 +542,22 @@ const tooltipY = ref(0);
 const trendDialogVisible = ref(false);
 const userModels = ref([]);
 const modelProviders = ref([]);
+const chartScrollRef = ref(null);
+const dialogChartScrollRef = ref(null);
 
-const chartWidth = 600;
-const chartHeight = 250;
-const dialogChartWidth = 900;
-const dialogChartHeight = 350;
+const chartHeight = 200;
+const dialogChartHeight = 300;
+const periodWidth = 40;
+const visiblePeriodsCount = 12;
+const scrollOffset = ref(0);
+const dialogScrollOffset = ref(0);
+
+const chartTotalWidth = computed(() => {
+  const numPeriods = periodLabels.value.length;
+  const minPeriods = visiblePeriodsCount;
+  const actualPeriods = Math.max(numPeriods, minPeriods);
+  return actualPeriods * periodWidth;
+});
 
 const businessTypeMap = {
   '连通测试': '连通测试',
@@ -555,12 +612,13 @@ const maxTrendValue = computed(() => {
 const yAxisLabels = computed(() => {
   const maxVal = maxTrendValue.value;
   return [
-    maxVal,
-    Math.round(maxVal * 0.8),
-    Math.round(maxVal * 0.6),
-    Math.round(maxVal * 0.4),
+    0,
     Math.round(maxVal * 0.2),
-    0
+    Math.round(maxVal * 0.4),
+    Math.round(maxVal * 0.6),
+    Math.round(maxVal * 0.8),
+    maxVal,
+    Math.round(maxVal * 1.2)
   ];
 });
 
@@ -604,81 +662,45 @@ const displayTrends = computed(() => {
 const totalTrendPointsArray = computed(() => {
   const points = [];
   const periods = periodLabels.value;
-  const padding = 60;
-  const plotWidth = chartWidth - padding * 2;
-  const plotHeight = 200;
-  const numPeriods = periods.length;
-  const barWidth = 40;
-  const gap = (plotWidth - barWidth * numPeriods) / Math.max(numPeriods + 1, 2);
+  const plotHeight = chartHeight;
+  const barWidth = 36;
   
   periods.forEach((period, index) => {
     const item = displayTrends.value.find(t => t.period === period);
-    const x = padding + gap + (barWidth + gap) * index + barWidth / 2;
-    const y = 230 - ((item ? item.token_count : 0) / Math.max(maxTrendValue.value, 1)) * plotHeight;
-    points.push({ x, y, value: item ? item.token_count : 0, period, barWidth });
+    const x = periodWidth * index + periodWidth / 2;
+    const y = chartHeight + 20 - ((item ? item.token_count : 0) / Math.max(maxTrendValue.value * 1.2, 1)) * plotHeight;
+    points.push({ x, y, value: item ? item.token_count : 0, period, barWidth, originalIndex: index });
   });
   
   return points;
-});
-
-const getXPositionForSvg = (index) => {
-  if (trendTab.value === 'total') {
-    return totalTrendPointsArray.value[index]?.x || 0;
-  }
-  const padding = 60;
-  const plotWidth = chartWidth - padding * 2;
-  return padding + (index / Math.max(periodLabels.value.length - 1, 1)) * plotWidth;
-};
-
-const totalTrendPoints = computed(() => {
-  return totalTrendPointsArray.value.map(p => `${p.x},${p.y}`).join(' ');
 });
 
 const dialogTotalTrendPointsArray = computed(() => {
   const points = [];
   const periods = periodLabels.value;
-  const padding = 60;
-  const plotWidth = dialogChartWidth - padding * 2;
-  const plotHeight = 300;
-  const numPeriods = periods.length;
-  const barWidth = 60;
-  const gap = (plotWidth - barWidth * numPeriods) / Math.max(numPeriods + 1, 2);
+  const plotHeight = dialogChartHeight;
+  const barWidth = 36;
   
   periods.forEach((period, index) => {
     const item = displayTrends.value.find(t => t.period === period);
-    const x = padding + gap + (barWidth + gap) * index + barWidth / 2;
-    const y = 330 - ((item ? item.token_count : 0) / Math.max(maxTrendValue.value, 1)) * plotHeight;
-    points.push({ x, y, value: item ? item.token_count : 0, period, barWidth });
+    const x = periodWidth * index + periodWidth / 2;
+    const y = dialogChartHeight + 20 - ((item ? item.token_count : 0) / Math.max(maxTrendValue.value * 1.2, 1)) * plotHeight;
+    points.push({ x, y, value: item ? item.token_count : 0, period, barWidth, originalIndex: index });
   });
   
   return points;
 });
 
-const getDialogXPositionForSvg = (index) => {
-  if (trendTab.value === 'total') {
-    return dialogTotalTrendPointsArray.value[index]?.x || 0;
-  }
-  const padding = 60;
-  const plotWidth = dialogChartWidth - padding * 2;
-  return padding + (index / Math.max(periodLabels.value.length - 1, 1)) * plotWidth;
-};
-
-const dialogTotalTrendPoints = computed(() => {
-  return dialogTotalTrendPointsArray.value.map(p => `${p.x},${p.y}`).join(' ');
-});
-
 const getCategoryTrendPointsArray = (category) => {
   const points = [];
   const periods = periodLabels.value;
-  const padding = 60;
-  const plotWidth = chartWidth - padding * 2;
-  const plotHeight = 200;
+  const plotHeight = chartHeight;
   
   periods.forEach((period, index) => {
     const item = displayTrends.value.find(t => t.period === period && t.category === category);
-    const x = padding + (index / Math.max(periods.length - 1, 1)) * plotWidth;
-    const y = 230 - ((item ? item.token_count : 0) / Math.max(maxTrendValue.value, 1)) * plotHeight;
-    points.push({ x, y, value: item ? item.token_count : 0, period });
+    const x = periodWidth * index + periodWidth / 2;
+    const y = chartHeight + 20 - ((item ? item.token_count : 0) / Math.max(maxTrendValue.value * 1.2, 1)) * plotHeight;
+    points.push({ x, y, value: item ? item.token_count : 0, period, originalIndex: index });
   });
   
   return points;
@@ -691,15 +713,13 @@ const getCategoryTrendPoints = (category) => {
 const getDialogCategoryTrendPointsArray = (category) => {
   const points = [];
   const periods = periodLabels.value;
-  const padding = 60;
-  const plotWidth = dialogChartWidth - padding * 2;
-  const plotHeight = 300;
+  const plotHeight = dialogChartHeight;
   
   periods.forEach((period, index) => {
     const item = displayTrends.value.find(t => t.period === period && t.category === category);
-    const x = padding + (index / Math.max(periods.length - 1, 1)) * plotWidth;
-    const y = 330 - ((item ? item.token_count : 0) / Math.max(maxTrendValue.value, 1)) * plotHeight;
-    points.push({ x, y, value: item ? item.token_count : 0, period });
+    const x = periodWidth * index + periodWidth / 2;
+    const y = dialogChartHeight + 20 - ((item ? item.token_count : 0) / Math.max(maxTrendValue.value * 1.2, 1)) * plotHeight;
+    points.push({ x, y, value: item ? item.token_count : 0, period, originalIndex: index });
   });
   
   return points;
@@ -709,22 +729,51 @@ const getDialogCategoryTrendPoints = (category) => {
   return getDialogCategoryTrendPointsArray(category).map(p => `${p.x},${p.y}`).join(' ');
 };
 
-const getXPosition = (index) => {
-  if (trendTab.value === 'total') {
-    return totalTrendPointsArray.value[index]?.x - 25;
+const getCurrentPeriodLabel = () => {
+  if (!dateRange.value || dateRange.value.length !== 2) {
+    return '';
   }
-  const padding = 30;
-  const plotWidth = chartWidth - padding * 2;
-  return padding + (index / Math.max(periodLabels.value.length - 1, 1)) * plotWidth - 25;
+  
+  const startDate = new Date(dateRange.value[0]);
+  const endDate = new Date(dateRange.value[1]);
+  const middleDate = new Date(startDate.getTime() + (endDate.getTime() - startDate.getTime()) / 2);
+  
+  const period = trendPeriod.value;
+  
+  if (period === 'day') {
+    return middleDate.toISOString().split('T')[0];
+  } else if (period === 'week') {
+    const year = middleDate.getFullYear();
+    const weekNum = getISOWeekNumber(middleDate);
+    return `${year}-W${String(weekNum).padStart(2, '0')}`;
+  } else if (period === 'month') {
+    return `${middleDate.getFullYear()}-${String(middleDate.getMonth() + 1).padStart(2, '0')}`;
+  } else if (period === 'year') {
+    return String(middleDate.getFullYear());
+  }
+  return '';
 };
 
-const getDialogXPosition = (index) => {
-  if (trendTab.value === 'total') {
-    return dialogTotalTrendPointsArray.value[index]?.x - 25;
-  }
-  const padding = 30;
-  const plotWidth = dialogChartWidth - padding * 2;
-  return padding + (index / Math.max(periodLabels.value.length - 1, 1)) * plotWidth - 25;
+const scrollToCurrentPeriod = () => {
+  nextTick(() => {
+    const currentPeriod = getCurrentPeriodLabel();
+    const periods = periodLabels.value;
+    const currentIndex = periods.indexOf(currentPeriod);
+    
+    let targetIndex = currentIndex >= 0 ? currentIndex : periods.length - 1;
+    const targetScrollLeft = Math.max(0, (targetIndex - Math.floor(visiblePeriodsCount / 2)) * periodWidth);
+    
+    scrollOffset.value = targetScrollLeft;
+    
+    if (chartScrollRef.value) {
+      chartScrollRef.value.scrollLeft = targetScrollLeft;
+    }
+    
+    dialogScrollOffset.value = targetScrollLeft;
+    if (dialogChartScrollRef.value) {
+      dialogChartScrollRef.value.scrollLeft = targetScrollLeft;
+    }
+  });
 };
 
 const getCategoryColor = (category, type) => {
@@ -891,6 +940,11 @@ const formatPeriodLabel = (period, periodType) => {
   return period;
 };
 
+const formatPeriodLabelLines = (period, periodType) => {
+  const label = formatPeriodLabel(period, periodType);
+  return label.split('\n');
+};
+
 const formatMMDD = (date) => {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
@@ -933,10 +987,6 @@ const getRankingColor = (index) => {
   return colors[index % colors.length];
 };
 
-const getTrendColor = (category) => {
-  return category ? getCategoryColor(category, trendTab.value) : '#409eff';
-};
-
 const showCategoryTooltip = (category, value, index, event) => {
   tooltipValue.value = value;
   tooltipVisible.value = true;
@@ -955,12 +1005,29 @@ const handleSvgMouseMove = (event) => {
   
 };
 
+const handleChartScroll = (event) => {
+  scrollOffset.value = event.target.scrollLeft;
+};
+
+const handleDialogChartScroll = (event) => {
+  dialogScrollOffset.value = event.target.scrollLeft;
+};
+
 const openTrendDialog = () => {
   trendDialogVisible.value = true;
+  nextTick(() => {
+    if (dialogChartScrollRef.value) {
+      dialogChartScrollRef.value.scrollLeft = scrollOffset.value;
+      dialogScrollOffset.value = scrollOffset.value;
+    }
+  });
 };
 
 const closeTrendDialog = () => {
-  
+  if (chartScrollRef.value) {
+    chartScrollRef.value.scrollLeft = dialogScrollOffset.value;
+    scrollOffset.value = dialogScrollOffset.value;
+  }
 };
 
 const handleTrendTabChange = () => {
@@ -1027,6 +1094,8 @@ const loadTrends = async () => {
     if (trendTab.value !== 'total' && availableCategories.value.length > 0 && selectedCategories.value.length === 0) {
       selectedCategories.value = availableCategories.value.slice(0, 2);
     }
+    
+    scrollToCurrentPeriod();
   } catch (error) {
     ElMessage.error('加载趋势数据失败');
     console.error(error);
@@ -1350,7 +1419,7 @@ onMounted(async () => {
   display: flex;
   align-items: flex-start;
   position: relative;
-  height: 300px;
+  height: 320px;
 }
 
 .trend-chart-dialog {
@@ -1360,22 +1429,49 @@ onMounted(async () => {
   height: 420px;
 }
 
-.trend-content {
+.trend-y-axis {
+  width: 60px;
+  flex-shrink: 0;
+  height: 280px;
+}
+
+.trend-y-axis-dialog {
+  width: 60px;
+  flex-shrink: 0;
+  height: 380px;
+}
+
+.trend-y-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.trend-content-scroll {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 280px;
+  scroll-behavior: smooth;
+}
+
+.trend-content-scroll-dialog {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 380px;
+  scroll-behavior: smooth;
+}
+
+.trend-content {
   height: 280px;
 }
 
 .trend-content-dialog {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  position: relative;
   height: 380px;
+}
+
+.trend-svg {
+  height: 100%;
 }
 
 .svg-y-label {
@@ -1386,20 +1482,6 @@ onMounted(async () => {
 .svg-x-label {
   font-size: 11px;
   color: #606266;
-}
-
-.trend-content-dialog {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  position: relative;
-  height: 360px;
-}
-
-.trend-svg {
-  width: 100%;
-  height: 100%;
 }
 
 .grid-lines {
@@ -1415,23 +1497,6 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-.trend-x-axis {
-  display: flex;
-  justify-content: space-between;
-  position: relative;
-  height: 20px;
-  flex-shrink: 0;
-}
-
-.x-label {
-  font-size: 11px;
-  color: #606266;
-  text-align: center;
-  position: absolute;
-  transform: translateX(-50%);
-  top: 0;
-}
-
 .trend-tooltip {
   position: absolute;
   background: white;
@@ -1443,12 +1508,6 @@ onMounted(async () => {
   pointer-events: none;
 }
 
-.tooltip-category {
-  font-weight: 500;
-  font-size: 12px;
-  margin-bottom: 4px;
-}
-
 .tooltip-value {
   font-size: 16px;
   font-weight: bold;
@@ -1456,20 +1515,16 @@ onMounted(async () => {
   margin-bottom: 4px;
 }
 
-.tooltip-period {
-  font-size: 11px;
-  color: #909399;
-}
-
 .trend-dialog-content {
   padding: 0;
-  height: 380px;
+  height: 520px;
 }
 
 .dialog-header-tabs {
   display: flex;
   justify-content: flex-end;
   margin-bottom: 20px;
+  padding: 0 20px;
 }
 
 :deep(.el-card__header) {
