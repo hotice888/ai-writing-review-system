@@ -373,11 +373,13 @@ const createFieldOptionItem = async (req, res) => {
       return res.status(404).json({ code: 404, message: '字段不存在', data: null });
     }
     
+    const tempOptionValue = option_value || '';
+    
     const result = await pool.query(`
       INSERT INTO field_option_items (field_id, option_text, option_value, status, display_order, parent_option_id)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
-    `, [fieldId, option_text, option_value || null, status, display_order, parent_option_id || null]);
+    `, [fieldId, option_text, tempOptionValue, status, display_order, parent_option_id || null]);
     
     const newOption = result.rows[0];
     if (!option_value) {
