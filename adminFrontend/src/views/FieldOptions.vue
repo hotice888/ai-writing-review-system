@@ -13,8 +13,8 @@
       <el-tabs v-model="activeTab" type="border-card">
         <el-tab-pane label="字段列表" name="fields">
           <div class="table-toolbar">
-            <el-input v-model="fieldSearchKeyword" placeholder="搜索字段名称或标识" clearable style="width: 250px;" />
-            <el-select v-model="fieldStatusFilter" placeholder="状态筛选" clearable style="width: 120px; margin-left: 10px;">
+            <el-input v-model="fieldSearchKeyword" placeholder="搜索字段名称或标识" clearable style="width: 250px;" @blur="handleFieldSearchBlur" />
+            <el-select v-model="fieldStatusFilter" placeholder="状态筛选" clearable style="width: 120px; margin-left: 10px;" @change="loadFieldList">
               <el-option label="启用" value="enabled" />
               <el-option label="禁用" value="disabled" />
             </el-select>
@@ -294,6 +294,7 @@ import {
 
 const activeTab = ref('fields');
 const optionActiveTab = ref('');
+const needRefreshOptionList = ref(false);
 
 const fieldList = ref([]);
 const fieldLoading = ref(false);
@@ -440,6 +441,13 @@ const loadAllFields = async () => {
 watch([optionSearchKeyword, optionFieldKeyword, optionStatusFilter], () => {
   optionPage.value = 1;
   loadOptionList();
+});
+
+watch(activeTab, (newTab) => {
+  if (newTab === 'options' && needRefreshOptionList.value) {
+    loadOptionList();
+    needRefreshOptionList.value = false;
+  }
 });
 
 const loadTabOptions = async (tab) => {
@@ -594,7 +602,7 @@ const handleSaveField = async () => {
       
       await loadFieldList();
       await loadAllFields();
-      await loadOptionList();
+      needRefreshOptionList.value = true;
     }
   } catch (error) {
     if (error !== false && typeof error !== 'boolean') {
@@ -614,14 +622,20 @@ const handleDeleteField = async (id) => {
     
     await deleteFieldOption(id);
     ElMessage.success('删除成功');
-    loadFieldList();
-    loadAllFields();
+    await loadFieldList();
+    await loadAllFields();
+    needRefreshOptionList.value = true;
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除字段失败:', error);
       ElMessage.error('删除字段失败');
     }
   }
+};
+
+const handleFieldSearchBlur = () => {
+  fieldPage.value = 1;
+  loadFieldList();
 };
 
 const handleToggleFieldStatus = async (row) => {
@@ -709,7 +723,7 @@ const handleSaveOptionEdit = async (row, tab) => {
     }
     row.editing = false;
     ElMessage.success('保存成功');
-    loadOptionList();
+    needRefreshOptionList.value = true;
   } catch (error) {
     console.error('保存选项失败:', error);
     ElMessage.error('保存选项失败');
