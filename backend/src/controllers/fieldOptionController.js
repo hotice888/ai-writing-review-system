@@ -6,37 +6,44 @@ const getFieldOptions = async (req, res) => {
     const { page = 1, pageSize = 20, keyword, status } = req.query;
     const offset = (page - 1) * pageSize;
     
-    let query = `
-      SELECT 
-        fo.*,
-        pfo.field_name as parent_field_name
-      FROM field_options fo
-      LEFT JOIN field_options pfo ON fo.parent_field_id = pfo.id
-      WHERE 1=1
-    `;
+    let whereConditions = ' WHERE 1=1';
     const params = [];
     let paramIndex = 1;
     
     if (keyword) {
-      query += ` AND (fo.field_name ILIKE $${paramIndex} OR fo.field_code ILIKE $${paramIndex})`;
+      whereConditions += ` AND (fo.field_name ILIKE $${paramIndex} OR fo.field_code ILIKE $${paramIndex})`;
       params.push(`%${keyword}%`);
       paramIndex++;
     }
     
     if (status) {
-      query += ` AND fo.status = $${paramIndex}`;
+      whereConditions += ` AND fo.status = $${paramIndex}`;
       params.push(status);
       paramIndex++;
     }
     
-    const countQuery = query.replace(/SELECT.*FROM/, 'SELECT COUNT(*) FROM');
+    const countQuery = `
+      SELECT COUNT(*) 
+      FROM field_options fo
+      LEFT JOIN field_options pfo ON fo.parent_field_id = pfo.id
+      ${whereConditions}
+    `;
     const countResult = await pool.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count);
     
-    query += ` ORDER BY fo.field_level ASC, fo.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(parseInt(pageSize), offset);
+    const query = `
+      SELECT 
+        fo.*,
+        pfo.field_name as parent_field_name
+      FROM field_options fo
+      LEFT JOIN field_options pfo ON fo.parent_field_id = pfo.id
+      ${whereConditions}
+      ORDER BY fo.field_level ASC, fo.created_at DESC 
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    const queryParams = [...params, parseInt(pageSize), offset];
     
-    const result = await pool.query(query, params);
+    const result = await pool.query(query, queryParams);
     
     res.json({
       code: 200,
@@ -186,7 +193,7 @@ const toggleFieldStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
     
-    if (!['enabled', 'disabled'].includes(status)) {
+    if (!['enabled', 'disabled', 'archived'].includes(status)) {
       return res.status(400).json({ code: 400, message: '状态值无效', data: null });
     }
     
@@ -215,37 +222,44 @@ const getFieldOptionItems = async (req, res) => {
     const { page = 1, pageSize = 100, keyword, status } = req.query;
     const offset = (page - 1) * pageSize;
     
-    let query = `
-      SELECT 
-        foi.*,
-        pfoi.option_text as parent_option_text
-      FROM field_option_items foi
-      LEFT JOIN field_option_items pfoi ON foi.parent_option_id = pfoi.id
-      WHERE foi.field_id = $1
-    `;
+    let whereConditions = ' WHERE foi.field_id = $1';
     const params = [fieldId];
     let paramIndex = 2;
     
     if (keyword) {
-      query += ` AND (foi.option_text ILIKE $${paramIndex} OR foi.option_value ILIKE $${paramIndex})`;
+      whereConditions += ` AND (foi.option_text ILIKE $${paramIndex} OR foi.option_value ILIKE $${paramIndex})`;
       params.push(`%${keyword}%`);
       paramIndex++;
     }
     
     if (status) {
-      query += ` AND foi.status = $${paramIndex}`;
+      whereConditions += ` AND foi.status = $${paramIndex}`;
       params.push(status);
       paramIndex++;
     }
     
-    const countQuery = query.replace(/SELECT.*FROM/, 'SELECT COUNT(*) FROM');
+    const countQuery = `
+      SELECT COUNT(*) 
+      FROM field_option_items foi
+      LEFT JOIN field_option_items pfoi ON foi.parent_option_id = pfoi.id
+      ${whereConditions}
+    `;
     const countResult = await pool.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count);
     
-    query += ` ORDER BY foi.display_order ASC, foi.created_at ASC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(parseInt(pageSize), offset);
+    const query = `
+      SELECT 
+        foi.*,
+        pfoi.option_text as parent_option_text
+      FROM field_option_items foi
+      LEFT JOIN field_option_items pfoi ON foi.parent_option_id = pfoi.id
+      ${whereConditions}
+      ORDER BY foi.display_order ASC, foi.created_at ASC 
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    const queryParams = [...params, parseInt(pageSize), offset];
     
-    const result = await pool.query(query, params);
+    const result = await pool.query(query, queryParams);
     
     res.json({
       code: 200,
@@ -267,7 +281,39 @@ const getAllOptionItems = async (req, res) => {
     const { page = 1, pageSize = 20, field_id, keyword, status } = req.query;
     const offset = (page - 1) * pageSize;
     
-    let query = `
+    let whereConditions = ' WHERE 1=1';
+    const params = [];
+    let paramIndex = 1;
+    
+    if (field_id) {
+      whereConditions += ` AND foi.field_id = $${paramIndex}`;
+      params.push(field_id);
+      paramIndex++;
+    }
+    
+    if (keyword) {
+      whereConditions += ` AND (foi.option_text ILIKE $${paramIndex} OR foi.option_value ILIKE $${paramIndex})`;
+      params.push(`%${keyword}%`);
+      paramIndex++;
+    }
+    
+    if (status) {
+      whereConditions += ` AND foi.status = $${paramIndex}`;
+      params.push(status);
+      paramIndex++;
+    }
+    
+    const countQuery = `
+      SELECT COUNT(*) 
+      FROM field_option_items foi
+      JOIN field_options fo ON foi.field_id = fo.id
+      LEFT JOIN field_option_items pfoi ON foi.parent_option_id = pfoi.id
+      ${whereConditions}
+    `;
+    const countResult = await pool.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].count);
+    
+    const query = `
       SELECT 
         foi.*,
         fo.field_name,
@@ -276,37 +322,13 @@ const getAllOptionItems = async (req, res) => {
       FROM field_option_items foi
       JOIN field_options fo ON foi.field_id = fo.id
       LEFT JOIN field_option_items pfoi ON foi.parent_option_id = pfoi.id
-      WHERE 1=1
+      ${whereConditions}
+      ORDER BY fo.field_level ASC, foi.display_order ASC, foi.created_at ASC 
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
-    const params = [];
-    let paramIndex = 1;
+    const queryParams = [...params, parseInt(pageSize), offset];
     
-    if (field_id) {
-      query += ` AND foi.field_id = $${paramIndex}`;
-      params.push(field_id);
-      paramIndex++;
-    }
-    
-    if (keyword) {
-      query += ` AND (foi.option_text ILIKE $${paramIndex} OR foi.option_value ILIKE $${paramIndex})`;
-      params.push(`%${keyword}%`);
-      paramIndex++;
-    }
-    
-    if (status) {
-      query += ` AND foi.status = $${paramIndex}`;
-      params.push(status);
-      paramIndex++;
-    }
-    
-    const countQuery = query.replace(/SELECT.*FROM/, 'SELECT COUNT(*) FROM');
-    const countResult = await pool.query(countQuery, params);
-    const total = parseInt(countResult.rows[0].count);
-    
-    query += ` ORDER BY fo.field_level ASC, foi.display_order ASC, foi.created_at ASC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(parseInt(pageSize), offset);
-    
-    const result = await pool.query(query, params);
+    const result = await pool.query(query, queryParams);
     
     res.json({
       code: 200,
