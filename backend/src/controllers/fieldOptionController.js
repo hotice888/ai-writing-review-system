@@ -276,7 +276,7 @@ const getFieldOptionItems = async (req, res) => {
 // 获取所有选项列表
 const getAllOptionItems = async (req, res) => {
   try {
-    const { page = 1, pageSize = 20, field_id, keyword, status } = req.query;
+    const { page = 1, pageSize = 20, field_id, keyword, field_keyword, status } = req.query;
     const offset = (page - 1) * pageSize;
     
     const conditions = [];
@@ -288,8 +288,13 @@ const getAllOptionItems = async (req, res) => {
     }
     
     if (keyword) {
-      conditions.push(`(foi.option_text ILIKE $${params.length + 1} OR foi.option_value ILIKE $${params.length + 1})`);
+      conditions.push(`(fo.field_name ILIKE $${params.length + 1} OR fo.field_code ILIKE $${params.length + 1} OR foi.option_text ILIKE $${params.length + 1} OR foi.option_value ILIKE $${params.length + 1})`);
       params.push(`%${keyword}%`);
+    }
+    
+    if (field_keyword) {
+      conditions.push(`(fo.field_name ILIKE $${params.length + 1} OR fo.field_code ILIKE $${params.length + 1})`);
+      params.push(`%${field_keyword}%`);
     }
     
     if (status) {
@@ -304,6 +309,7 @@ const getAllOptionItems = async (req, res) => {
       FROM field_option_items foi
       JOIN field_options fo ON foi.field_id = fo.id
       LEFT JOIN field_option_items pfoi ON foi.parent_option_id = pfoi.id
+      LEFT JOIN field_options pfo ON fo.parent_field_id = pfo.id
       ${whereClause}
     `;
     const countResult = await pool.query(countQuery, params);
@@ -315,10 +321,14 @@ const getAllOptionItems = async (req, res) => {
         foi.*,
         fo.field_name,
         fo.field_code,
+        fo.status as field_status,
+        fo.field_level,
+        pfo.field_name as parent_field_name,
         pfoi.option_text as parent_option_text
       FROM field_option_items foi
       JOIN field_options fo ON foi.field_id = fo.id
       LEFT JOIN field_option_items pfoi ON foi.parent_option_id = pfoi.id
+      LEFT JOIN field_options pfo ON fo.parent_field_id = pfo.id
       ${whereClause}
       ORDER BY fo.field_level ASC, foi.display_order ASC, foi.created_at ASC 
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}

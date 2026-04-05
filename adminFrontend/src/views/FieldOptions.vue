@@ -71,10 +71,8 @@
         
         <el-tab-pane label="选项列表" name="options">
           <div class="table-toolbar">
-            <el-select v-model="optionFieldFilter" placeholder="选择字段" clearable style="width: 200px;" @change="loadOptionList">
-              <el-option v-for="field in allFields" :key="field.id" :label="field.field_name" :value="field.id" />
-            </el-select>
-            <el-input v-model="optionSearchKeyword" placeholder="搜索选项" clearable style="width: 200px; margin-left: 10px;" />
+            <el-input v-model="optionSearchKeyword" placeholder="模糊搜索：字段名称、标识、选项名称、选项Value" clearable style="width: 350px;" />
+            <el-input v-model="optionFieldKeyword" placeholder="搜索字段名称或标识" clearable style="width: 200px; margin-left: 10px;" />
             <el-select v-model="optionStatusFilter" placeholder="状态筛选" clearable style="width: 120px; margin-left: 10px;">
               <el-option label="启用" value="enabled" />
               <el-option label="禁用" value="disabled" />
@@ -85,20 +83,34 @@
           
           <el-table :data="optionList" style="width: 100%; margin-top: 10px;" border v-loading="optionLoading">
             <el-table-column type="index" label="序号" width="60" />
-            <el-table-column prop="field_name" label="所属字段" width="150" />
-            <el-table-column prop="option_text" label="选项名称" width="150" />
-            <el-table-column prop="option_value" label="选项Value" width="150" />
-            <el-table-column prop="display_order" label="显示序号" width="100" />
-            <el-table-column prop="parent_option_text" label="上级选项" width="150">
+            <el-table-column prop="field_name" label="字段名称" width="120" />
+            <el-table-column prop="field_code" label="字段标识" width="120" />
+            <el-table-column prop="field_status" label="字段状态" width="100">
               <template #default="scope">
-                {{ scope.row.parent_option_text || '-' }}
+                <el-tag :type="scope.row.field_status === 'enabled' ? 'success' : 'danger'">
+                  {{ scope.row.field_status === 'enabled' ? '启用' : '禁用' }}
+                </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="status" label="状态" width="100">
+            <el-table-column prop="field_level" label="字段层级" width="90" />
+            <el-table-column prop="option_text" label="选项名称" width="120" />
+            <el-table-column prop="option_value" label="选项Value" width="120" />
+            <el-table-column prop="status" label="选项状态" width="100">
               <template #default="scope">
                 <el-tag :type="getOptionStatusType(scope.row.status)">
                   {{ getOptionStatusText(scope.row.status) }}
                 </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="display_order" label="显示序号" width="90" />
+            <el-table-column prop="parent_option_text" label="上级选项" width="120">
+              <template #default="scope">
+                {{ scope.row.parent_option_text || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="parent_field_name" label="上级字段" width="120">
+              <template #default="scope">
+                {{ scope.row.parent_field_name || '-' }}
               </template>
             </el-table-column>
             <el-table-column label="操作" width="120" fixed="right">
@@ -297,7 +309,7 @@ const optionPageSize = ref(20);
 const optionTotal = ref(0);
 const optionSearchKeyword = ref('');
 const optionStatusFilter = ref('');
-const optionFieldFilter = ref('');
+const optionFieldKeyword = ref('');
 const allFields = ref([]);
 
 const fieldDetailVisible = ref(false);
@@ -382,11 +394,11 @@ const loadOptionList = async () => {
       page: optionPage.value,
       pageSize: optionPageSize.value
     };
-    if (optionFieldFilter.value) {
-      params.field_id = optionFieldFilter.value;
-    }
     if (optionSearchKeyword.value) {
       params.keyword = optionSearchKeyword.value;
+    }
+    if (optionFieldKeyword.value) {
+      params.field_keyword = optionFieldKeyword.value;
     }
     if (optionStatusFilter.value) {
       params.status = optionStatusFilter.value;
